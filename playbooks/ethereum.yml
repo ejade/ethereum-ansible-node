@@ -1,0 +1,13 @@
+---
+- name: Setup Ethereum Node
+  hosts: ethereum_nodes
+  become: true
+
+  pre_tasks:
+    - name: Update apt cache
+      ansible.builtin.apt:
+        update_cache: true
+
+  roles:
+    - os_hardening
+    - ethereum

@@ -1,0 +1,278 @@
+---
+- name: Install dependencies
+  ansible.builtin.apt:
+    name:
+      - curl
+      - gnupg
+      - lsb-release
+      - ca-certificates
+      - software-properties-common
+      - openssl
+      - wget
+      - jq
+    state: present
+
+- name: Create execution group
+  ansible.builtin.group:
+    name: "{{ execution_group }}"
+    state: present
+    system: true
+
+- name: Create consensus group
+  ansible.builtin.group:
+    name: "{{ consensus_group }}"
+    state: present
+    system: true
+
+- name: Create execution user
+  ansible.builtin.user:
+    name: "{{ execution_user }}"
+    group: "{{ execution_group }}"
+    shell: /bin/false
+    system: yes
+    create_home: no
+
+- name: Create consensus user
+  ansible.builtin.user:
+    name: "{{ consensus_user }}"
+    group: "{{ consensus_group }}"
+    shell: /bin/false
+    system: yes
+    create_home: no
+
+- name: Create secrets directory
+  ansible.builtin.file:
+    path: /secrets
+    state: directory
+    mode: '0755'
+    owner: root
+    group: root
+
+- name: Create JWT secret file
+  ansible.builtin.shell: |
+    openssl rand -hex 32 | tr -d "\n" > /secrets/jwtsecret
+  args:
+    creates: /secrets/jwtsecret
+
+- name: Set JWT secret file permissions
+  ansible.builtin.file:
+    path: /secrets/jwtsecret
+    mode: '0644'
+    owner: root
+    group: root
+
+- name: Create execution directories
+  ansible.builtin.file:
+    path: "{{ execution_dir }}"
+    state: directory
+    owner: "{{ execution_user }}"
+    group: "{{ execution_group }}"
+    mode: '0755'
+
+- name: Create consensus directories
+  ansible.builtin.file:
+    path: "{{ consensus_dir }}"
+    state: directory
+    owner: "{{ consensus_user }}"
+    group: "{{ consensus_group }}"
+    mode: '0755'
+  
+- name: Check if execution client (Geth) is installed
+  ansible.builtin.shell: /usr/local/bin/geth version | grep ^Version | awk '{print $2}'
+  register: geth_version
+  changed_when: false
+  failed_when: false
+  when: execution_client == 'geth'
+
+- name: Check if execution client (Reth) is installed
+  ansible.builtin.shell: /root/.cargo/bin/reth --version | awk '{print $2}'
+  register: reth_version
+  changed_when: false
+  failed_when: false
+  when: execution_client == 'reth'
+
+- name: Check if consensus client (Lighthouse) is installed
+  ansible.builtin.shell: /usr/local/bin/lighthouse --version | head -n 1 | awk '{print $2}'
+  register: lighthouse_version
+  changed_when: false
+  failed_when: false
+  when: consensus_client == 'lighthouse'
+
+- name: Display installed versions
+  ansible.builtin.debug:
+    msg:
+      - "------------------------------------"
+      - "CURRENTLY INSTALLED VERSIONS"
+      - "------------------------------------"
+      - "Execution client ({{ execution_client }}): {{ geth_version.stdout | default(reth_version.stdout) | default('Not installed') }}"
+      - "Consensus client ({{ consensus_client }}): {{ lighthouse_version.stdout | default('Not installed') }}"
+      - "------------------------------------"
+
+- name: Install Geth
+  when: 
+    - execution_client == 'geth'
+    - geth_version.stdout is not defined
+  block:
+    - name: Get latest Geth download URL
+      ansible.builtin.shell: |
+        RELEASE_URL="https://geth.ethereum.org/downloads"
+        FILE="https://gethstore.blob.core.windows.net/builds/geth-linux-amd64[a-zA-Z0-9./?=_%:-]*.tar.gz"
+        curl -s $RELEASE_URL | grep -Eo $FILE | head -1
+      register: geth_url
+      args:
+        executable: /bin/bash
+
+    - name: Download Geth binary
+      ansible.builtin.get_url:
+        url: "{{ geth_url.stdout }}"
+        dest: /tmp/geth.tar.gz
+        mode: '0644'
+
+    - name: Create temporary directory for Geth extraction
+      ansible.builtin.file:
+        path: /tmp/geth-extract
+        state: directory
+        mode: '0755'
+
+    - name: Extract Geth binary
+      ansible.builtin.unarchive:
+        src: /tmp/geth.tar.gz
+        dest: /tmp/geth-extract
+        remote_src: yes
+
+    - name: Find Geth binary in extracted folder
+      ansible.builtin.find:
+        paths: /tmp/geth-extract
+        patterns: geth
+        recurse: yes
+      register: geth_binary
+
+    - name: Copy Geth binary to /usr/local/bin
+      ansible.builtin.copy:
+        src: "{{ geth_binary.files[0].path }}"
+        dest: /usr/local/bin/geth
+        mode: '0755'
+        remote_src: yes
+        owner: "{{ execution_user }}"
+        group: "{{ execution_group }}"
+
+    - name: Clean up temporary files
+      ansible.builtin.file:
+        path: "{{ item }}"
+        state: absent
+      loop:
+        - /tmp/geth.tar.gz
+        - /tmp/geth-extract
+
+- name: Install Reth
+  when: 
+    - execution_client == 'reth'
+    - reth_version.stdout is not defined
+  block:
+    - name: Install Rustup
+      ansible.builtin.shell: |
+        curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y
+      args:
+        creates: /root/.cargo/bin/rustup
+
+    - name: Install Reth from source
+      ansible.builtin.shell: |
+        source $HOME/.cargo/env
+        cargo install --git https://github.com/paradigmxyz/reth.git --locked
+      args:
+        creates: /root/.cargo/bin/reth
+
+    - name: Set ownership of Reth binary
+      ansible.builtin.file:
+        path: /root/.cargo/bin/reth
+        owner: "{{ execution_user }}"
+        group: "{{ execution_group }}"
+        mode: '0755'
+
+- name: Install Lighthouse
+  when: 
+    - consensus_client == 'lighthouse'
+    - lighthouse_version.stdout is not defined
+  block:
+    - name: Get latest Lighthouse download URL
+      ansible.builtin.shell: |
+        RELEASE_URL="https://api.github.com/repos/sigp/lighthouse/releases/latest"
+        BINARIES_URL="$(curl -s $RELEASE_URL | jq -r '.assets[] | select(.name) | .browser_download_url' | grep x86_64-unknown-linux-gnu.tar.gz$)"
+        echo $BINARIES_URL
+      register: lighthouse_url
+      args:
+        executable: /bin/bash
+
+    - name: Download Lighthouse binary
+      ansible.builtin.get_url:
+        url: "{{ lighthouse_url.stdout }}"
+        dest: /tmp/lighthouse.tar.gz
+        mode: '0644'
+
+    - name: Create temporary directory for Lighthouse extraction
+      ansible.builtin.file:
+        path: /tmp/lighthouse-extract
+        state: directory
+        mode: '0755'
+
+    - name: Extract Lighthouse binary
+      ansible.builtin.unarchive:
+        src: /tmp/lighthouse.tar.gz
+        dest: /tmp/lighthouse-extract
+        remote_src: yes
+
+    - name: Copy Lighthouse binary to /usr/local/bin
+      ansible.builtin.copy:
+        src: "/tmp/lighthouse-extract/lighthouse"
+        dest: /usr/local/bin/lighthouse
+        mode: '0755'
+        remote_src: yes
+        owner: "{{ consensus_user }}"
+        group: "{{ consensus_group }}"
+
+    - name: Clean up temporary files
+      ansible.builtin.file:
+        path: "{{ item }}"
+        state: absent
+      loop:
+        - /tmp/lighthouse.tar.gz
+        - /tmp/lighthouse-extract
+
+- name: Create systemd service for execution client
+  ansible.builtin.template:
+    src: execution.service.j2
+    dest: /etc/systemd/system/execution.service
+    mode: '0644'
+
+- name: Create systemd service for consensus client
+  ansible.builtin.template:
+    src: consensus.service.j2
+    dest: /etc/systemd/system/consensus.service
+    mode: '0644'
+  
+
+- name: Set ownership of systemd execution service
+  ansible.builtin.file:
+    path: "/etc/systemd/system/execution.service"
+    owner: root
+    group: root
+    mode: '0644'
+
+- name: Set ownership of systemd consensus service
+  ansible.builtin.file:
+    path: "/etc/systemd/system/consensus.service"
+    owner: root
+    group: root
+    mode: '0644'
+
+  
+- name: Enable and start Ethereum services
+  ansible.builtin.systemd:
+    name: "{{ item }}"
+    state: started
+    enabled: yes
+    daemon_reload: yes
+  loop:
+    - "execution"
+    - "consensus"
+  when: item is defined and item != ""

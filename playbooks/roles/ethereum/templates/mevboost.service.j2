@@ -1,0 +1,10 @@
+[Service]
+User={{ mevboost_user }}
+Group={{ mevboost_group }}
+Type=simple
+Restart=always
+RestartSec=5
+ExecStart={{ mevboost_exec }}
+
+[Install]
+WantedBy=multi-user.target

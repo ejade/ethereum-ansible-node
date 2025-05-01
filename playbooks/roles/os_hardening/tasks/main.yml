@@ -1,0 +1,59 @@
+---
+- name: Install security packages
+  ansible.builtin.apt:
+    name:
+      - acl
+      - ufw
+      - fail2ban
+      - chrony
+      - unattended-upgrades
+      - vim
+      - ccze
+      - tmux
+    state: present
+
+- name: Configure UFW rules
+  ansible.builtin.ufw:
+    rule: allow
+    port: "{{ item.port }}"
+    proto: "{{ item.proto }}"
+  loop: "{{ ufw_rules }}"
+
+- name: Enable UFW
+  ansible.builtin.ufw:
+    state: enabled
+    policy: deny
+
+- name: Configure Fail2ban
+  ansible.builtin.template:
+    src: fail2ban.jail.local.j2
+    dest: /etc/fail2ban/jail.local
+    mode: '0644'
+
+- name: Restart Fail2ban
+  ansible.builtin.service:
+    name: fail2ban
+    state: restarted
+
+- name: Configure Chrony
+  ansible.builtin.template:
+    src: chrony.conf.j2
+    dest: /etc/chrony/chrony.conf
+    mode: '0644'
+
+- name: Restart Chrony
+  ansible.builtin.service:
+    name: chrony
+    state: restarted
+
+- name: Configure Unattended Upgrades
+  ansible.builtin.template:
+    src: 50unattended-upgrades.j2
+    dest: /etc/apt/apt.conf.d/50unattended-upgrades
+    mode: '0644'
+
+- name: Enable Unattended Upgrades
+  ansible.builtin.template:
+    src: 20auto-upgrades.j2
+    dest: /etc/apt/apt.conf.d/20auto-upgrades
+    mode: '0644' 

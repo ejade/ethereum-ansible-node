@@ -1,0 +1,20 @@
+---
+# UFW configuration
+ufw_rules:
+  - { port: 22, proto: tcp, comment: "SSH" }
+  - { port: 30303, proto: tcp, comment: "Ethereum P2P TCP" }
+  - { port: 30303, proto: udp, comment: "Ethereum P2P UDP" }
+  - { port: 9000, proto: tcp, comment: "Lighthouse P2P" }
+  - { port: 9001, proto: udp, comment: "Lighthouse QUIC" }
+
+# Fail2ban configuration
+fail2ban_bantime: 3600
+fail2ban_findtime: 600
+fail2ban_maxretry: 3
+
+# Chrony configuration
+chrony_servers:
+  - 2.debian.pool.ntp.org
+  - 1.debian.pool.ntp.org
+  - 0.debian.pool.ntp.org
+  - 3.debian.pool.ntp.org 
