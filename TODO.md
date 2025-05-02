@@ -11,4 +11,4 @@
         🛰️  Sync Status: Full Node
         🧠 Validator Mode: Enabled
         🪄 Magic Level: Over 9000
- ```
+    ```
