@@ -1,0 +1,160 @@
+---
+- name: Install dependencies
+  ansible.builtin.apt:
+    name:
+      - curl
+      - gnupg
+      - lsb-release
+      - ca-certificates
+      - software-properties-common
+      - openssl
+    state: present
+
+- name: Create execution group
+  ansible.builtin.group:
+    name: "{{ execution_group }}"
+    state: present
+    system: true
+
+- name: Create consensus group
+  ansible.builtin.group:
+    name: "{{ consensus_group }}"
+    state: present
+    system: true
+
+- name: Create execution user
+  ansible.builtin.user:
+    name: "{{ execution_user }}"
+    group: "{{ execution_group }}"
+    shell: /bin/false
+    system: true
+    create_home: false
+
+- name: Create consensus user
+  ansible.builtin.user:
+    name: "{{ consensus_user }}"
+    group: "{{ consensus_group }}"
+    shell: /bin/false
+    system: true
+    create_home: false
+
+- name: Create secrets directory
+  ansible.builtin.file:
+    path: /secrets
+    state: directory
+    mode: '0755'
+    owner: root
+    group: root
+
+- name: Create JWT secret file
+  ansible.builtin.shell: |
+    openssl rand -hex 32 | tr -d "\n" > /secrets/jwtsecret
+  args:
+    creates: /secrets/jwtsecret
+
+- name: Set JWT secret file permissions
+  ansible.builtin.file:
+    path: /secrets/jwtsecret
+    mode: '0644'
+    owner: root
+    group: root
+
+- name: Create ethereum directories
+  ansible.builtin.file:
+    path: "{{ item }}"
+    state: directory
+    owner: "{{ execution_user }}"
+    group: "{{ execution_group }}"
+    mode: '0755'
+  loop:
+    - "{{ execution_dir }}"
+    - "{{ consensus_data_dir }}"
+
+- name: Install Geth
+  when: eth_client == 'geth'
+  block:
+    - name: Add Ethereum PPA
+      ansible.builtin.apt_repository:
+        repo: "ppa:ethereum/ethereum"
+        state: present
+
+    - name: Install Geth package
+      ansible.builtin.apt:
+        name: geth
+        state: latest
+
+- name: Install Reth
+  when: eth_client == 'reth'
+  block:
+    - name: Install Rustup
+      ansible.builtin.shell: |
+        curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y
+      args:
+        creates: /root/.cargo/bin/rustup
+
+    - name: Install Reth from source
+      ansible.builtin.shell: |
+        source $HOME/.cargo/env
+        cargo install --git https://github.com/paradigmxyz/reth.git --locked
+      args:
+        creates: /root/.cargo/bin/reth
+
+    - name: Set ownership of Reth binary
+      ansible.builtin.file:
+        path: /root/.cargo/bin/reth
+        owner: "{{ execution_user }}"
+        group: "{{ execution_group }}"
+        mode: '0755'
+
+- name: Install Lighthouse
+  when: consensus_client == 'lighthouse'
+  block:
+    - name: Install Lighthouse from binary
+      ansible.builtin.get_url:
+        url: https://github.com/sigp/lighthouse/releases/latest/download/lighthouse-$(uname -m)-unknown-linux-gnu.tar.gz
+        dest: /tmp/lighthouse.tar.gz
+
+    - name: Extract Lighthouse binary
+      ansible.builtin.unarchive:
+        src: /tmp/lighthouse.tar.gz
+        dest: /usr/local/bin/
+        remote_src: true
+
+    - name: Set ownership of Lighthouse binary
+      ansible.builtin.file:
+        path: /usr/local/bin/lighthouse
+        owner: "{{ consensus_user }}"
+        group: "{{ consensus_group }}"
+        mode: '0755'
+
+- name: Create systemd services for clients
+  ansible.builtin.template:
+    src: ethereum.service.j2
+    dest: "/etc/systemd/system/{{ item.client }}.service"
+    mode: '0644'
+  loop:
+    - { client: "{{ eth_client }}", type: "execution" }
+    - { client: "{{ consensus_client }}", type: "consensus" }
+  when: item.client is defined and item.client != ""
+
+- name: Set ownership of systemd service files
+  ansible.builtin.file:
+    path: "/etc/systemd/system/{{ item.client }}.service"
+    owner: root
+    group: root
+    mode: '0644'
+  loop:
+    - "{{ eth_client }}"
+    - "{{ consensus_client }}"
+  when: item is defined and item != ""
+
+- name: Enable and start Ethereum services
+  ansible.builtin.systemd:
+    name: "{{ item.client }}"
+    state: started
+    enabled: true
+    daemon_reload: true
+  loop:
+    - "{{ eth_client }}"
+    - "{{ consensus_client }}"
+  when: item.client is defined and item.client != "" 
