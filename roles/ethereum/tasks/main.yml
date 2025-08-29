@@ -40,6 +40,28 @@
     system: yes
     create_home: no
 
+- name: Create validator group
+  ansible.builtin.group:
+    name: "{{ validator_group }}"
+    state: present
+    system: true
+
+- name: Create validator user
+  ansible.builtin.user:
+    name: "{{ validator_user }}"
+    group: "{{ validator_group }}"
+    shell: /bin/false
+    system: yes
+    create_home: no
+
+- name: Create validator directory
+  ansible.builtin.file:
+    path: "{{ validator_dir }}"
+    state: directory
+    owner: "{{ validator_user }}"
+    group: "{{ validator_group }}"
+    mode: '0700'
+
 - name: Create secrets directory
   ansible.builtin.file:
     path: /secrets
@@ -249,7 +271,12 @@
     src: consensus.service.j2
     dest: /etc/systemd/system/consensus.service
     mode: '0644'
-  
+
+- name: Create systemd service for validator
+  ansible.builtin.template:
+    src: validator.service.j2
+    dest: /etc/systemd/system/validator.service
+    mode: '0644'
 
 - name: Set ownership of systemd execution service
   ansible.builtin.file:
@@ -265,7 +292,13 @@
     group: root
     mode: '0644'
 
-  
+- name: Set ownership of systemd validator service
+  ansible.builtin.file:
+    path: "/etc/systemd/system/validator.service"
+    owner: root
+    group: root
+    mode: '0644'
+
 - name: Enable and start Ethereum services
   ansible.builtin.systemd:
     name: "{{ item }}"
@@ -275,4 +308,5 @@
   loop:
     - "execution"
     - "consensus"
+    - "validator"
   when: item is defined and item != ""

@@ -5,6 +5,10 @@ execution_client: "geth"      # Options: geth, reth
 consensus_client: "lighthouse"  # Options: lighthouse
 enable_mevboost: true  # Whether to install and configure MEV-Boost
 
+# Validator configuration
+suggested_fee_recipient: "0x0000000000000000000000000000000000000000" # This needs to be set in order to receive block rewards.
+validator_exec: "{{ lookup('vars', consensus_client + '_validator_exec') }}"
+
 # Client-specific versions
 geth_version: "stable"
 reth_version: "latest"
@@ -15,11 +19,14 @@ execution_user: "execution"
 execution_group: "execution"
 consensus_user: "consensus"
 consensus_group: "consensus"
+validator_user: "validator"
+validator_group: "validator"
 
 # Installation paths
 data_dir: "/var/lib"
 execution_dir: "{{ data_dir }}/execution"
 consensus_dir: "{{ data_dir }}/consensus"
+validator_dir: "{{ data_dir }}/validator"
 
 # Service configurations
 
@@ -66,6 +73,16 @@ lighthouse_exec: |
     --metrics-port 8008 \
     --execution-endpoint http://127.0.0.1:8551 \
     --execution-jwt /secrets/jwtsecret
+
+lighthouse_validator_exec: |
+  /usr/local/bin/lighthouse vc \
+    --network {{ eth_network }} \
+    --beacon-nodes http://localhost:5052 \
+    --datadir {{ consensus_dir }} \
+    --graffiti="🥩-ing with eth devops" \
+    --metrics \
+    --metrics-port 8009 \
+    --suggested-fee-recipient={{ suggested_fee_recipient }}
 
 # MEV-Boost configuration
 # Use the mainnet relays if on mainnet, otherwise use the testnet relays
