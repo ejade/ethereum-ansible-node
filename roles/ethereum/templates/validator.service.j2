@@ -1,0 +1,19 @@
+[Unit]
+Description=Ethereum validator client
+Wants=network-online.target
+After=network-online.target
+
+
+[Service]
+Type=simple
+User={{ validator_user }}
+Group={{ validator_group }}
+Restart=on-failure
+RestartSec=3
+KillSignal=SIGINT
+TimeoutStopSec=900
+ExecStart={{ validator_exec }}
+
+
+[Install]
+WantedBy=multi-user.target 
