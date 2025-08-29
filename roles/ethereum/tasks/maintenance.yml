@@ -42,10 +42,13 @@
 
 - name: Display service status
   ansible.builtin.debug:
-    msg: |
-      Service '{{ item.item }}' status: {{ 'Running' if item.status.ActiveState == 'active' else 'Not running' }} 
-      Last started: {{ item.status.ExecMainStartTimestamp | default('N/A') }}
-      Main PID: {{ item.status.MainPID | default('N/A') }}
+    msg:
+      - "------------------------------------"
+      - "Service: {{ item.item }}"
+      - "Status : {{ 'Running' if item.status.ActiveState == 'active' else 'Not running' }}"
+      - "PID    : {{ item.status.MainPID | default('N/A') }}"
+      - "Started: {{ item.status.ExecMainStartTimestamp | default('N/A') }}"
+      - "------------------------------------"
   loop: "{{ service_status.results }}"
   when: item.status is defined
 

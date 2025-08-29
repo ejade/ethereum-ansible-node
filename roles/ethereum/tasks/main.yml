@@ -130,10 +130,8 @@
       - "Consensus client ({{ consensus_client }}): {{ lighthouse_version.stdout | default('Not installed') }}"
       - "------------------------------------"
 
-- name: Install Geth
-  when: 
-    - execution_client == 'geth'
-    - geth_version.stdout is not defined
+- name: Get latest Geth version info
+  when: execution_client == 'geth'
   block:
     - name: Get latest Geth download URL
       ansible.builtin.shell: |
@@ -143,6 +141,31 @@
       register: geth_url
       args:
         executable: /bin/bash
+
+    - name: Extract version from download URL
+      ansible.builtin.set_fact:
+        latest_geth_version: "{{ geth_url.stdout | regex_replace('.*geth-linux-amd64-(.+)\\.tar\\.gz', '\\1') }}"
+
+    - name: Display version comparison
+      ansible.builtin.debug:
+        msg:
+          - "{{ '=' * 60 }}"
+          - "{{ ' ' * 20 }}🚀 GETH VERSION CHECK {{ ' ' * 20 }}"
+          - "{{ '=' * 60 }}"
+          - "📦 Currently installed: {{ geth_version.stdout | default('Not installed') }}"
+          - "🆕 Latest available: {{ latest_geth_version }}"
+          - "{{ '=' * 60 }}"
+
+- name: Install or upgrade Geth
+  when: 
+    - execution_client == 'geth'
+    - geth_version.stdout is not defined or geth_version.stdout != latest_geth_version
+  block:
+    - name: Stop execution service if running
+      ansible.builtin.systemd:
+        name: execution
+        state: stopped
+      ignore_errors: yes
 
     - name: Download Geth binary
       ansible.builtin.get_url:
@@ -169,6 +192,15 @@
         recurse: yes
       register: geth_binary
 
+    - name: Backup existing Geth binary
+      ansible.builtin.copy:
+        src: /usr/local/bin/geth
+        dest: /usr/local/bin/geth.backup
+        remote_src: yes
+        mode: '0755'
+      when: geth_version.stdout is defined
+      ignore_errors: yes
+
     - name: Copy Geth binary to /usr/local/bin
       ansible.builtin.copy:
         src: "{{ geth_binary.files[0].path }}"
@@ -178,6 +210,21 @@
         owner: "{{ execution_user }}"
         group: "{{ execution_group }}"
 
+    - name: Verify new Geth version
+      ansible.builtin.shell: /usr/local/bin/geth version | grep ^Version | awk '{print $2}'
+      register: new_geth_version
+      changed_when: false
+
+    - name: Display upgrade result
+      ansible.builtin.debug:
+        msg:
+          - "{{ '=' * 60 }}"
+          - "{{ ' ' * 20 }}✅ GETH UPGRADE COMPLETE {{ ' ' * 20 }}"
+          - "{{ '=' * 60 }}"
+          - "📦 Previous version: {{ geth_version.stdout | default('None') }}"
+          - "🆕 New version: {{ new_geth_version.stdout }}"
+          - "{{ '=' * 60 }}"
+
     - name: Clean up temporary files
       ansible.builtin.file:
         path: "{{ item }}"
@@ -185,6 +232,12 @@
       loop:
         - /tmp/geth.tar.gz
         - /tmp/geth-extract
+
+    - name: Remove backup file
+      ansible.builtin.file:
+        path: /usr/local/bin/geth.backup
+        state: absent
+      when: new_geth_version.stdout == latest_geth_version
 
 - name: Install Reth
   when: 

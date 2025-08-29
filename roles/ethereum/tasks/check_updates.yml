@@ -1,4 +1,36 @@
 ---
+# Check and display currently installed versions.
+- name: Check if execution client (Geth) is installed
+  ansible.builtin.shell: /usr/local/bin/geth version | grep ^Version | awk '{print $2}'
+  register: geth_version
+  changed_when: false
+  failed_when: false
+  when: execution_client == 'geth'
+
+- name: Check if execution client (Reth) is installed
+  ansible.builtin.shell: /root/.cargo/bin/reth --version | awk '{print $2}'
+  register: reth_version
+  changed_when: false
+  failed_when: false
+  when: execution_client == 'reth'
+
+- name: Check if consensus client (Lighthouse) is installed
+  ansible.builtin.shell: /usr/local/bin/lighthouse --version | head -n 1 | awk '{print $2}'
+  register: lighthouse_version
+  changed_when: false
+  failed_when: false
+  when: consensus_client == 'lighthouse'
+
+- name: Display installed versions
+  ansible.builtin.debug:
+    msg:
+      - "------------------------------------"
+      - "CURRENTLY INSTALLED VERSIONS"
+      - "------------------------------------"
+      - "Execution client ({{ execution_client }}): {{ geth_version.stdout | default(reth_version.stdout) | default('Not installed') }}"
+      - "Consensus client ({{ consensus_client }}): {{ lighthouse_version.stdout | default('Not installed') }}"
+      - "------------------------------------"
+
 # Check for Geth updates
 - name: Check for Geth updates
   when: execution_client == 'geth'
@@ -68,3 +100,12 @@
           {% else %}
           Update available: No
           {% endif %} 
+- name: Display latest versions
+  ansible.builtin.debug:
+    msg:
+      - "------------------------------------"
+      - "LATEST AVAILABLE VERSIONS"
+      - "------------------------------------"
+      - "Execution client ({{ execution_client }}): {{ latest_geth_version.stdout | default(latest_reth_version.stdout) | default('Not installed') }}"
+      - "Consensus client ({{ consensus_client }}): {{ lighthouse_releases.json.tag_name | default('Not Installed') | regex_replace('^v', '') }}"
+      - "------------------------------------"

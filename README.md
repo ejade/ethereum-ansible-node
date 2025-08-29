@@ -134,42 +134,33 @@ This will:
 ansible-playbook -i inventory.ini playbooks/maintenance.yml -e "check_updates=true"
 ```
 
-This will:
-- Check for updates to Geth, Reth, and Lighthouse
-- Compare installed versions with latest available versions
-- Indicate if updates are available
+# Update clients
+```bash
+ansible-playbook -i inventory.ini ethereum.yml # bear in mind this will upgade if upgrades are available.
+```
 
 ### Common Maintenance Tasks
 
 ```bash
 # Restart services
-ansible-playbook -i inventory.ini playbooks/ethereum.yml --tags restart
+ansible-playbook -i inventory.ini playbooks/ethereum.yml --tags restart <- Not implemented
 
-# Check logs
-ansible-playbook -i inventory.ini playbooks/maintenance.yml --tags logs
-
-# Check sync status
-ansible-playbook -i inventory.ini playbooks/maintenance.yml --tags sync
 ```
 
 ## Security Notes
 
 - The playbook creates system users without shell access
-- JWT secret is generated securely using OpenSSL
+- JWT secret is generated securely using OpenSSL and gets proper file permissions
 - Firewall rules are configured to allow only necessary ports
-- Services run under dedicated users with minimal permissions
-- Automatic security updates are enabled
+- Services run under dedicated users with least privilige principles
+- Automatic security updates are enabled (unattened upgrades)
 
 ## Directory Structure
 
 ```
-/
-├── /secrets/                 # JWT secret storage
-├── /var/lib/                 # Execution client data
-│   └── geth/                 # Geth data directory
-└── /opt/ethereum/           # Ethereum base directory
-    └── data/                # Data directory
-        └── consensus/       # Consensus client data
+/secrets/                          # JWT secret storage
+/var/lib/execution                 # Execution client data
+/var/lib/consensus                 # Consensus client data
 ```
 
 ## Troubleshooting

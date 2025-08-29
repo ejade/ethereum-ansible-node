@@ -10,6 +10,7 @@
     
     - name: Run maintenance tasks
       ansible.builtin.include_tasks: ../roles/ethereum/tasks/maintenance.yml
+      when: check_updates == false | default(false) | bool
       
     - name: Check for updates to client binaries
       ansible.builtin.include_tasks: ../roles/ethereum/tasks/check_updates.yml
