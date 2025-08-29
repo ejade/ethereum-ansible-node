@@ -6,7 +6,7 @@
   tasks:
     - name: Include role variables
       ansible.builtin.include_vars:
-        dir: roles/ethereum/defaults
+        dir: ../roles/ethereum/defaults
     
     - name: Check and display client versions
-      ansible.builtin.include_tasks: roles/ethereum/tasks/version.yml 
+      ansible.builtin.include_tasks: ../roles/ethereum/tasks/version.yml 

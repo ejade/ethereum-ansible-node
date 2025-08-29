@@ -1,17 +1,18 @@
 ---
-- name: Get execution client version (Geth)
-  ansible.builtin.shell: /usr/local/bin/geth version | grep ^Version | awk '{print $2}'
-  register: execution_version
-  changed_when: false
-  failed_when: false
-  when: execution_client == "geth"
+- name: Set execution client command
+  ansible.builtin.set_fact:
+    execution_command: >-
+      {% if execution_client == "geth" %}
+      /usr/local/bin/geth version | grep ^Version | awk '{print $2}'
+      {% elif execution_client == "reth" %}
+      /root/.cargo/bin/reth --version | awk '{print $2}'
+      {% endif %}
 
-- name: Get execution client version (Reth)
-  ansible.builtin.shell: /root/.cargo/bin/reth --version | awk '{print $2}'
+- name: Get execution client version
+  ansible.builtin.shell: "{{ execution_command }}"
   register: execution_version
   changed_when: false
   failed_when: false
-  when: execution_client == "reth"
 
 - name: Get consensus client version (Lighthouse)
   ansible.builtin.shell: /usr/local/bin/lighthouse --version | head -n 1 | awk '{print $2}'

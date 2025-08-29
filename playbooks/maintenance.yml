@@ -6,11 +6,11 @@
   tasks:
     - name: Include role variables
       ansible.builtin.include_vars:
-        dir: roles/ethereum/defaults
+        dir: ../roles/ethereum/defaults
     
     - name: Run maintenance tasks
-      ansible.builtin.include_tasks: roles/ethereum/tasks/maintenance.yml
+      ansible.builtin.include_tasks: ../roles/ethereum/tasks/maintenance.yml
       
     - name: Check for updates to client binaries
-      ansible.builtin.include_tasks: roles/ethereum/tasks/check_updates.yml
+      ansible.builtin.include_tasks: ../roles/ethereum/tasks/check_updates.yml
       when: check_updates | default(false) | bool 
