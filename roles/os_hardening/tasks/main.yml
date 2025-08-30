@@ -3,8 +3,6 @@
   ansible.builtin.apt:
     name:
       - acl
-      - ufw
-      - fail2ban
       - chrony
       - unattended-upgrades
       - vim
@@ -12,28 +10,6 @@
       - tmux
     state: present
 
-- name: Configure UFW rules
-  ansible.builtin.ufw:
-    rule: allow
-    port: "{{ item.port }}"
-    proto: "{{ item.proto }}"
-  loop: "{{ ufw_rules }}"
-
-- name: Enable UFW
-  ansible.builtin.ufw:
-    state: enabled
-    policy: deny
-
-- name: Configure Fail2ban
-  ansible.builtin.template:
-    src: fail2ban.jail.local.j2
-    dest: /etc/fail2ban/jail.local
-    mode: '0644'
-
-- name: Restart Fail2ban
-  ansible.builtin.service:
-    name: fail2ban
-    state: restarted
 
 - name: Configure Chrony
   ansible.builtin.template:

@@ -1,0 +1,17 @@
+---
+
+- name: Ensure required packages
+  ansible.builtin.apt:
+    pkg: "{{ fail2ban_debian_packages }}"
+    state: present
+
+- name: Configure Fail2ban
+  ansible.builtin.template:
+    src: fail2ban.jail.local.j2
+    dest: /etc/fail2ban/jail.local
+    mode: '0644'
+
+- name: Restart Fail2ban
+  ansible.builtin.service:
+    name: fail2ban
+    state: restarted

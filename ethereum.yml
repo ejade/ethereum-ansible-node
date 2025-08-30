@@ -11,3 +11,4 @@
   roles:
     - os_hardening
     - ethereum
+    - fail2ban
