@@ -5,14 +5,20 @@
     pkg: "{{ ufw_debian_packages }}"
     state: present
 
+- name: Enable UFW
+  ansible.builtin.ufw:
+    state: enabled
+    policy: deny
+
+- name: Disable default in
+  ufw: direction=incoming policy=deny
+
+- name: Disable default outgoing
+  ufw: direction=outgoing policy=allow
+
 - name: Configure UFW rules
   ansible.builtin.ufw:
     rule: allow
     port: "{{ item.port }}"
     proto: "{{ item.proto }}"
   loop: "{{ ufw_rules }}"
-
-- name: Enable UFW
-  ansible.builtin.ufw:
-    state: enabled
-    policy: deny

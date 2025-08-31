@@ -3,24 +3,19 @@
   ansible.builtin.apt:
     name:
       - acl
-      - chrony
       - unattended-upgrades
       - vim
       - ccze
       - tmux
+      - git
+      - jq
+      - htop
+      - curl
+      - btop
     state: present
 
 
-- name: Configure Chrony
-  ansible.builtin.template:
-    src: chrony.conf.j2
-    dest: /etc/chrony/chrony.conf
-    mode: '0644'
 
-- name: Restart Chrony
-  ansible.builtin.service:
-    name: chrony
-    state: restarted
 
 - name: Configure Unattended Upgrades
   ansible.builtin.template:

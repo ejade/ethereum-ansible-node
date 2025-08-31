@@ -12,3 +12,5 @@
     - os_hardening
     - ethereum
     - fail2ban
+    - firewall
+    - chrony
