@@ -363,3 +363,7 @@
     - "consensus"
     - "validator"
   when: item is defined and item != ""
+
+- name: Version check
+  import_tasks: version.yml
+  tags: [version_check] 

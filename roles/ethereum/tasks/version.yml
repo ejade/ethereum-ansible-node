@@ -5,7 +5,7 @@
       {% if execution_client == "geth" %}
       /usr/local/bin/geth version | grep ^Version | awk '{print $2}'
       {% elif execution_client == "reth" %}
-      /root/.cargo/bin/reth --version | awk '{print $2}'
+      /usr/local/bin/reth --version | awk '{print $2}'
       {% endif %}
 
 - name: Get execution client version
