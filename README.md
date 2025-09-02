@@ -118,7 +118,7 @@ This will display the currently installed versions of both the execution and con
 ### Basic Node Health Check
 
 ```bash
-ansible-playbook -i inventory.ini playbooks/maintenance.yml
+ansible-playbook -i inventory.ini ethereum.yml -t status_check
 ```
 
 This will:
@@ -131,7 +131,7 @@ This will:
 ### Check for Updates
 
 ```bash
-ansible-playbook -i inventory.ini playbooks/maintenance.yml -e "check_updates=true"
+ansible-playbook -i inventory.ini ethereum.yml -t version_check
 ```
 
 # Update clients
@@ -143,7 +143,7 @@ ansible-playbook -i inventory.ini ethereum.yml # bear in mind this will upgade i
 
 ```bash
 # Restart services
-ansible-playbook -i inventory.ini playbooks/ethereum.yml --tags restart <- Not implemented
+ansible-playbook -i inventory.ini playbooks/ethereum.yml --tags restart <- Not yet implemented
 
 ```
 

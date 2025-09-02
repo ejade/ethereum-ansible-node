@@ -364,6 +364,10 @@
     - "validator"
   when: item is defined and item != ""
 
-- name: Version check
+- name: Check Versions
   import_tasks: version.yml
   tags: [version_check] 
+
+- name: Check Status
+  import_tasks: check_status.yml
+  tags: [status_check] 
