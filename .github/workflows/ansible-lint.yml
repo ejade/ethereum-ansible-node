@@ -1,19 +1,80 @@
 # .github/workflows/ansible-lint.yml
-name: ansible-lint
+name: Ansible Lint
+
 on:
+  push:
+    branches: ["main", "stable", "release/*"]
+    paths:
+      - "roles/**"
+      - "playbooks/**"
+      - ".ansible-lint"
+      - ".github/workflows/ansible-lint.yml"
   pull_request:
-    branches: ["main", "stable", "release/v*"]
+    branches: ["main", "stable", "release/*"]
+    paths:
+      - "roles/**"
+      - "playbooks/**"
+      - ".ansible-lint"
+      - ".github/workflows/ansible-lint.yml"
+
 jobs:
-  build:
-    name: Ansible Lint # Naming the build is important to use it as a status check
+  ansible-lint:
+    name: Ansible Lint
     runs-on: ubuntu-24.04
+    # Optional: cancel previous runs on same PR/branch
+    concurrency:
+      group: ${{ github.workflow }}-${{ github.ref }}
+      cancel-in-progress: true
+
+    permissions:
+      contents: read
+      security-events: write   # needed only if you upload SARIF
+
+    env:
+      ANSIBLE_FORCE_COLOR: "1"
+
     steps:
-      - uses: actions/checkout@v4
-      - name: Run ansible-lint
-        uses: ansible/ansible-lint@main
-        # optional (see below):
+      - name: Checkout code
+        uses: actions/checkout@v4
         with:
-          args: ""
-          setup_python: "true"
-          working_directory: ""
-          requirements_file: ""
+          fetch-depth: 0
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: "pip"
+
+      - name: Install ansible-lint
+        run: |
+          python -m pip install --upgrade pip
+          # Pin to a recent major; adjust as needed
+          pip install "ansible-lint[community]>=24.0.0"
+
+      - name: Run ansible-lint
+        run: |
+          ansible-lint --version
+          # Save a log and keep rich progress in CI output
+          ansible-lint --show-progress --format=rich | tee .ansible-lint.log
+
+      # Optional: also emit SARIF for PR annotations
+      - name: Generate SARIF report
+        run: |
+          ansible-lint --format sarif -o ansible-lint.sarif || true
+
+      - name: Upload SARIF
+        uses: github/codeql-action/upload-sarif@v3
+        if: always()
+        with:
+          sarif_file: ansible-lint.sarif
+
+      - name: Upload lint results
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: ansible-lint-results
+          path: |
+            .ansible-lint-cache/
+            .ansible-lint.log
+            ansible-lint.sarif
+          retention-days: 30

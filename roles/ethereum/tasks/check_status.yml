@@ -101,9 +101,9 @@
     body_format: json
     body: |
       {
-        "jsonrpc": "2.0", 
-        "method": "eth_syncing", 
-        "params": [], 
+        "jsonrpc": "2.0",
+        "method": "eth_syncing",
+        "params": [],
         "id": 1
       }
     return_content: true
@@ -134,7 +134,8 @@
       - "ETHEREUM NODE CLIENT SYNC STATUS"
       - "------------------------------------"
       - "Execution client: {{ execution_client }}"
-      - "Synced: {{ 'Execution client is synced' if execution_sync_status.json.result == false else 'Execution client is syncing: ' + (execution_sync_status.json.result | to_nice_json) }}"
+      - "Synced: {{ 'Execution client is synced' if execution_sync_status.json.result == false else 'Execution client is syncing: ' + (execution_sync_status.json.result
+        | to_nice_json) }}"
       - ""
       - "Consensus client: {{ consensus_client }}"
       - "Synced: {{ lighthouse_synced | default('N/A') }}"
@@ -148,4 +149,4 @@
 
 - name: Display JWT file status
   ansible.builtin.debug:
-    msg: "JWT secret file exists: {{ jwt_file.stat.exists }}, last modified: {{ jwt_file.stat.mtime | default('N/A') }}" 
+    msg: "JWT secret file exists: {{ jwt_file.stat.exists }}, last modified: {{ jwt_file.stat.mtime | default('N/A') }}"

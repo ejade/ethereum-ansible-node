@@ -99,7 +99,7 @@
           Update available: Yes
           {% else %}
           Update available: No
-          {% endif %} 
+          {% endif %}
 - name: Display latest versions
   ansible.builtin.debug:
     msg:

@@ -9,7 +9,7 @@
       {% endif %}
 
 - name: Get execution client version
-  ansible.builtin.shell: "{{ execution_command }}"
+  ansible.builtin.command: "{{ execution_command }}"
   register: execution_version
   changed_when: false
   failed_when: false

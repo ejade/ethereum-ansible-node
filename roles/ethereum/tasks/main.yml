@@ -29,16 +29,16 @@
     name: "{{ execution_user }}"
     group: "{{ execution_group }}"
     shell: /bin/false
-    system: yes
-    create_home: no
+    system: true
+    create_home: false
 
 - name: Create consensus user
   ansible.builtin.user:
     name: "{{ consensus_user }}"
     group: "{{ consensus_group }}"
     shell: /bin/false
-    system: yes
-    create_home: no
+    system: true
+    create_home: false
 
 - name: Create validator group
   ansible.builtin.group:
@@ -51,8 +51,8 @@
     name: "{{ validator_user }}"
     group: "{{ validator_group }}"
     shell: /bin/false
-    system: yes
-    create_home: no
+    system: true
+    create_home: false
 
 - name: Create validator directory
   ansible.builtin.file:
@@ -60,13 +60,13 @@
     state: directory
     owner: "{{ validator_user }}"
     group: "{{ validator_group }}"
-    mode: '0700'
+    mode: "0700"
 
 - name: Create secrets directory
   ansible.builtin.file:
     path: /secrets
     state: directory
-    mode: '0755'
+    mode: "0755"
     owner: root
     group: root
 
@@ -79,7 +79,7 @@
 - name: Set JWT secret file permissions
   ansible.builtin.file:
     path: /secrets/jwtsecret
-    mode: '0644'
+    mode: "0644"
     owner: root
     group: root
 
@@ -89,7 +89,7 @@
     state: directory
     owner: "{{ execution_user }}"
     group: "{{ execution_group }}"
-    mode: '0755'
+    mode: "0755"
 
 - name: Create consensus directories
   ansible.builtin.file:
@@ -97,8 +97,8 @@
     state: directory
     owner: "{{ consensus_user }}"
     group: "{{ consensus_group }}"
-    mode: '0755'
-  
+    mode: "0755"
+
 - name: Check if execution client (Geth) is installed
   ansible.builtin.shell: /usr/local/bin/geth version | grep ^Version | awk '{print $2}'
   register: geth_version
@@ -157,7 +157,7 @@
           - "{{ '=' * 60 }}"
 
 - name: Install or upgrade Geth
-  when: 
+  when:
     - execution_client == 'geth'
     - geth_version.stdout is not defined or geth_version.stdout != latest_geth_version
   block:
@@ -165,48 +165,48 @@
       ansible.builtin.systemd:
         name: execution
         state: stopped
-      ignore_errors: yes
+      ignore_errors: true
 
     - name: Download Geth binary
       ansible.builtin.get_url:
         url: "{{ geth_url.stdout }}"
         dest: /tmp/geth.tar.gz
-        mode: '0644'
+        mode: "0644"
 
     - name: Create temporary directory for Geth extraction
       ansible.builtin.file:
         path: /tmp/geth-extract
         state: directory
-        mode: '0755'
+        mode: "0755"
 
     - name: Extract Geth binary
       ansible.builtin.unarchive:
         src: /tmp/geth.tar.gz
         dest: /tmp/geth-extract
-        remote_src: yes
+        remote_src: true
 
     - name: Find Geth binary in extracted folder
       ansible.builtin.find:
         paths: /tmp/geth-extract
         patterns: geth
-        recurse: yes
+        recurse: true
       register: geth_binary
 
     - name: Backup existing Geth binary
       ansible.builtin.copy:
         src: /usr/local/bin/geth
         dest: /usr/local/bin/geth.backup
-        remote_src: yes
-        mode: '0755'
+        remote_src: true
+        mode: "0755"
       when: geth_version.stdout is defined
-      ignore_errors: yes
+      ignore_errors: true
 
     - name: Copy Geth binary to /usr/local/bin
       ansible.builtin.copy:
         src: "{{ geth_binary.files[0].path }}"
         dest: /usr/local/bin/geth
-        mode: '0755'
-        remote_src: yes
+        mode: "0755"
+        remote_src: true
         owner: "{{ execution_user }}"
         group: "{{ execution_group }}"
 
@@ -240,7 +240,7 @@
       when: new_geth_version.stdout == latest_geth_version
 
 - name: Install Reth
-  when: 
+  when:
     - execution_client == 'reth'
     - reth_version.stdout is not defined
   block:
@@ -262,10 +262,10 @@
         path: /root/.cargo/bin/reth
         owner: "{{ execution_user }}"
         group: "{{ execution_group }}"
-        mode: '0755'
+        mode: "0755"
 
 - name: Install Lighthouse
-  when: 
+  when:
     - consensus_client == 'lighthouse'
     - lighthouse_version.stdout is not defined
   block:
@@ -282,26 +282,26 @@
       ansible.builtin.get_url:
         url: "{{ lighthouse_url.stdout }}"
         dest: /tmp/lighthouse.tar.gz
-        mode: '0644'
+        mode: "0644"
 
     - name: Create temporary directory for Lighthouse extraction
       ansible.builtin.file:
         path: /tmp/lighthouse-extract
         state: directory
-        mode: '0755'
+        mode: "0755"
 
     - name: Extract Lighthouse binary
       ansible.builtin.unarchive:
         src: /tmp/lighthouse.tar.gz
         dest: /tmp/lighthouse-extract
-        remote_src: yes
+        remote_src: true
 
     - name: Copy Lighthouse binary to /usr/local/bin
       ansible.builtin.copy:
         src: "/tmp/lighthouse-extract/lighthouse"
         dest: /usr/local/bin/lighthouse
-        mode: '0755'
-        remote_src: yes
+        mode: "0755"
+        remote_src: true
         owner: "{{ consensus_user }}"
         group: "{{ consensus_group }}"
 
@@ -317,47 +317,47 @@
   ansible.builtin.template:
     src: execution.service.j2
     dest: /etc/systemd/system/execution.service
-    mode: '0644'
+    mode: "0644"
 
 - name: Create systemd service for consensus client
   ansible.builtin.template:
     src: consensus.service.j2
     dest: /etc/systemd/system/consensus.service
-    mode: '0644'
+    mode: "0644"
 
 - name: Create systemd service for validator
   ansible.builtin.template:
     src: validator.service.j2
     dest: /etc/systemd/system/validator.service
-    mode: '0644'
+    mode: "0644"
 
 - name: Set ownership of systemd execution service
   ansible.builtin.file:
     path: "/etc/systemd/system/execution.service"
     owner: root
     group: root
-    mode: '0644'
+    mode: "0644"
 
 - name: Set ownership of systemd consensus service
   ansible.builtin.file:
     path: "/etc/systemd/system/consensus.service"
     owner: root
     group: root
-    mode: '0644'
+    mode: "0644"
 
 - name: Set ownership of systemd validator service
   ansible.builtin.file:
     path: "/etc/systemd/system/validator.service"
     owner: root
     group: root
-    mode: '0644'
+    mode: "0644"
 
 - name: Enable and start Ethereum services
   ansible.builtin.systemd:
     name: "{{ item }}"
     state: started
-    enabled: yes
-    daemon_reload: yes
+    enabled: true
+    daemon_reload: true
   loop:
     - "execution"
     - "consensus"
@@ -366,8 +366,8 @@
 
 - name: Check Versions
   import_tasks: version.yml
-  tags: [version_check] 
+  tags: [version_check]
 
 - name: Check Status
   import_tasks: check_status.yml
-  tags: [status_check] 
+  tags: [status_check]

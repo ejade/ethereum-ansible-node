@@ -1,5 +1,4 @@
 ---
-
 - name: Update MOTD
   tags: motd
   template:

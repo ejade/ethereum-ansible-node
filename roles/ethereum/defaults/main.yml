@@ -1,9 +1,9 @@
 ---
 # Ethereum network configuration
-eth_network: "hoodi"  # Options: mainnet, hoodi
-execution_client: "geth"      # Options: geth, reth
-consensus_client: "lighthouse"  # Options: lighthouse
-enable_mevboost: true  # Whether to install and configure MEV-Boost
+eth_network: "hoodi" # Options: mainnet, hoodi
+execution_client: "geth" # Options: geth, reth
+consensus_client: "lighthouse" # Options: lighthouse
+enable_mevboost: true # Whether to install and configure MEV-Boost
 
 # Validator configuration
 suggested_fee_recipient: "0x0000000000000000000000000000000000000000" # This needs to be set in order to receive block rewards.
@@ -94,7 +94,7 @@ mainnet_relays:
 testnet_relays:
   - https://0x84e78cb2ad883861c9eeeb7d1b22a8e02332637448f84144e245d20dff1eb97d7abdde96d93d518026ab8agora.holesky.dencun-relays.pk910.de
 
-mevboost_exec: |
+mevboost_exec: |-
   /usr/local/bin/mev-boost \
     -{{ eth_network }} \
     {% if eth_network == 'mainnet' %}

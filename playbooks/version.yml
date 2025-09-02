@@ -1,12 +1,12 @@
 ---
 - name: Check Ethereum Node Client Versions
   hosts: ethereum_nodes
-  #become: true
-  
+  # become: true
+
   tasks:
     - name: Include role variables
       ansible.builtin.include_vars:
         dir: ../roles/ethereum/defaults
-    
+
     - name: Check and display client versions
-      ansible.builtin.include_tasks: ../roles/ethereum/tasks/version.yml 
+      ansible.builtin.include_tasks: ../roles/ethereum/tasks/version.yml

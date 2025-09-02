@@ -19,7 +19,7 @@
     state: directory
     owner: "{{ mevboost_user }}"
     group: "{{ mevboost_group }}"
-    mode: '0755'
+    mode: "0755"
 
 - name: Get latest MEV-Boost download URL
   ansible.builtin.shell: |
@@ -35,26 +35,26 @@
   ansible.builtin.get_url:
     url: "{{ mevboost_url.stdout }}"
     dest: /tmp/mev-boost.tar.gz
-    mode: '0644'
+    mode: "0644"
 
 - name: Create temporary directory for MEV-Boost extraction
   ansible.builtin.file:
     path: /tmp/mev-boost-extract
     state: directory
-    mode: '0755'
+    mode: "0755"
 
 - name: Extract MEV-Boost binary
   ansible.builtin.unarchive:
     src: /tmp/mev-boost.tar.gz
     dest: /tmp/mev-boost-extract
-    remote_src: yes
+    remote_src: true
 
 - name: Copy MEV-Boost binary to /usr/local/bin
   ansible.builtin.copy:
     src: "/tmp/mev-boost-extract/mev-boost"
     dest: /usr/local/bin/mev-boost
-    mode: '0755'
-    remote_src: yes
+    mode: "0755"
+    remote_src: true
     owner: "{{ mevboost_user }}"
     group: "{{ mevboost_group }}"
 
@@ -70,18 +70,18 @@
   ansible.builtin.template:
     src: mevboost.service.j2
     dest: /etc/systemd/system/mevboost.service
-    mode: '0644'
+    mode: "0644"
 
 - name: Set ownership of systemd MEV-Boost service
   ansible.builtin.file:
     path: "/etc/systemd/system/mevboost.service"
     owner: root
     group: root
-    mode: '0644'
+    mode: "0644"
 
 - name: Enable and start MEV-Boost service
   ansible.builtin.systemd:
     name: mevboost
     state: started
     enabled: true
-    daemon_reload: true 
+    daemon_reload: true

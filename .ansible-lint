@@ -1,0 +1,24 @@
+---
+# Ansible Lint configuration file
+
+exclude_paths:
+  - ".git/"
+  - ".github/"
+  - ".vscode/"
+  - "node_modules/"
+  - "*.md"
+  - "*.txt"
+
+warn_list:
+  - no-handler # Warn about tasks without handlers
+  - no-tabs # Warn about tabs instead of spaces
+  - trailing-spaces # Warn about trailing whitespace
+
+skip_list:
+  - fqcn-builtins # Skip FQCN for builtin modules
+  - name[template] # Skip template name warnings
+
+verbosity: 1
+#show_progress: true
+#format: rich
+#cache_dir: .ansible-lint-cache
