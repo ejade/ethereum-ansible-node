@@ -9,7 +9,7 @@
         update_cache: true
 
   roles:
-    - os_hardening
+    - base
     - ethereum
     - fail2ban
     - firewall
