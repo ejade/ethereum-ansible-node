@@ -1,0 +1,53 @@
+---
+# Ethereum network configuration
+eth_network: "hoodi" # Options: mainnet, hoodi
+execution_client: "geth" # Options: geth, reth
+consensus_client: "lighthouse" # Options: lighthouse
+enable_mevboost: true # Whether to install and configure MEV-Boost
+
+# Validator configuration
+suggested_fee_recipient: "0x0000000000000000000000000000000000000000" # This needs to be set in order to receive block rewards.
+validator_exec: "{{ lookup('vars', consensus_client + '_validator_exec') }}"
+
+# Client-specific versions
+lodestar_version: "latest"
+
+# User configuration
+consensus_user: "consensus"
+consensus_group: "consensus"
+validator_user: "validator"
+validator_group: "validator"
+
+# Installation paths
+data_dir: "/var/lib"
+consensus_dir: "{{ data_dir }}/consensus"
+validator_dir: "{{ data_dir }}/validator"
+
+# Service configurations
+
+consensus_exec: "{{ lookup('vars', consensus_client + '_exec') }}"
+execution_exec: "{{ lookup('vars', execution_client + '_exec') }}"
+
+lighthouse_exec: |
+  /usr/local/bin/lodestar/lodestar beacon \
+    --dataDir /var/lib/lodestar \
+    --network {{ eth_network }} \
+    --rest.port 5052 \
+    --port 9000 \
+    --targetPeers 100 \
+    --metrics.port 8008 \
+    --metrics true \
+    --checkpointSyncUrl https://beaconstate.info \
+    --jwt-secret /secrets/jwtsecret \
+    --execution.urls http://127.0.0.1:8551{% if enable_mevboost %} \
+    --suggestedFeeRecipient {{ suggested_fee_recipient }}{% endif %}
+
+lighthouse_validator_exec: |
+  ExecStart=/usr/local/bin/lodestar/lodestar validator \
+    --network {{ eth_network }} \
+    --dataDir {{ validator_dir }} \
+    --beaconNodes http://127.0.0.1:5052 \
+    --metrics true \
+    --metrics.port 8009 \
+    --graffiti "🥩-ing with eth devops"{% if enable_mevboost %} \
+    --suggestedFeeRecipient {{ suggested_fee_recipient }}{% endif %}

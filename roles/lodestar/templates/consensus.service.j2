@@ -1,0 +1,20 @@
+[Unit]
+Description=Ethereum consensus client
+Wants=network-online.target
+After=network-online.target
+
+
+[Service]
+Type=simple
+User={{ consensus_user }}
+Group={{ consensus_group }}
+Restart=on-failure
+RestartSec=3
+KillSignal=SIGINT
+TimeoutStopSec=900
+WorkingDirectory=/usr/local/bin/lodestar
+ExecStart={{ consensus_exec }}
+
+
+[Install]
+WantedBy=multi-user.target 

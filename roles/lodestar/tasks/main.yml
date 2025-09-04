@@ -1,0 +1,190 @@
+---
+- name: Install dependencies
+  ansible.builtin.apt:
+    name:
+      - curl
+      - gnupg
+      - lsb-release
+      - ca-certificates
+      - software-properties-common
+      - openssl
+      - wget
+      - jq
+    state: present
+
+ 
+- name: Create consensus group
+  ansible.builtin.group:
+    name: "{{ consensus_group }}"
+    state: present
+    system: true
+
+- name: Create consensus user
+  ansible.builtin.user:
+    name: "{{ consensus_user }}"
+    group: "{{ consensus_group }}"
+    shell: /bin/false
+    system: true
+    create_home: false
+
+- name: Create validator group
+  ansible.builtin.group:
+    name: "{{ validator_group }}"
+    state: present
+    system: true
+
+- name: Create validator user
+  ansible.builtin.user:
+    name: "{{ validator_user }}"
+    group: "{{ validator_group }}"
+    shell: /bin/false
+    system: true
+    create_home: false
+
+- name: Create validator directory
+  ansible.builtin.file:
+    path: "{{ validator_dir }}"
+    state: directory
+    owner: "{{ validator_user }}"
+    group: "{{ validator_group }}"
+    mode: "0700"
+
+- name: Create secrets directory
+  ansible.builtin.file:
+    path: /secrets
+    state: directory
+    mode: "0755"
+    owner: root
+    group: root
+
+- name: Create JWT secret file
+  ansible.builtin.shell: |
+    openssl rand -hex 32 | tr -d "\n" > /secrets/jwtsecret
+  args:
+    creates: /secrets/jwtsecret
+
+- name: Set JWT secret file permissions
+  ansible.builtin.file:
+    path: /secrets/jwtsecret
+    mode: "0644"
+    owner: root
+    group: root
+
+- name: Create consensus directories
+  ansible.builtin.file:
+    path: "{{ consensus_dir }}"
+    state: directory
+    owner: "{{ consensus_user }}"
+    group: "{{ consensus_group }}"
+    mode: "0755"
+
+- name: Check if consensus client (Lodestar) is installed
+  ansible.builtin.shell: /usr/local/bin/lodestar --version
+  register: lodestar_version
+  changed_when: false
+  failed_when: false
+  when: consensus_client == 'lodestar'
+
+- name: Display installed versions
+  ansible.builtin.debug:
+    msg:
+      - "------------------------------------"
+      - "CURRENTLY INSTALLED VERSIONS"
+      - "------------------------------------"
+      - "Consensus client ({{ consensus_client }}): {{ lodestar_version.stdout | default('Not installed') }}"
+      - "------------------------------------"
+
+- name: Install lodestar
+  when:
+    - consensus_client == 'lodestar'
+    - lodestar_version.stdout is not defined
+  block:
+    - name: Get latest lodestar download URL
+      ansible.builtin.shell: |
+        RELEASE_URL="https://api.github.com/repos/ChainSafe/lodestar/releases/latest"
+        LATEST_TAG="$(curl -s $RELEASE_URL | jq -r ".tag_name")"
+        BINARIES_URL="https://github.com/ChainSafe/lodestar/releases/download/${LATEST_TAG}/lodestar-${LATEST_TAG}-linux-amd64.tar.gz"
+        echo $BINARIES_URL
+      register: lodestar_url
+      args:
+        executable: /bin/bash
+
+    - name: Download Lodestar binary
+      ansible.builtin.get_url:
+        url: "{{ lodestar_url.stdout }}"
+        dest: /tmp/lodestar.tar.gz
+        mode: "0644"
+
+    - name: Create temporary directory for lodestar extraction
+      ansible.builtin.file:
+        path: /tmp/lodestar-extract
+        state: directory
+        mode: "0755"
+
+    - name: Extract lodestar binary
+      ansible.builtin.unarchive:
+        src: /tmp/lodestar.tar.gz
+        dest: /tmp/lodestar-extract
+        remote_src: true
+
+    - name: Copy lodestar binary to /usr/local/bin
+      ansible.builtin.copy:
+        src: "/tmp/lodestar-extract/lodestar"
+        dest: /usr/local/bin/lodestar
+        mode: "0755"
+        remote_src: true
+        owner: "{{ consensus_user }}"
+        group: "{{ consensus_group }}"
+
+    - name: Clean up temporary files
+      ansible.builtin.file:
+        path: "{{ item }}"
+        state: absent
+      loop:
+        - /tmp/lodestar.tar.gz
+        - /tmp/lodestar-extract
+
+- name: Create systemd service for consensus client
+  ansible.builtin.template:
+    src: consensus.service.j2
+    dest: /etc/systemd/system/consensus.service
+    mode: "0644"
+
+- name: Create systemd service for validator
+  ansible.builtin.template:
+    src: validator.service.j2
+    dest: /etc/systemd/system/validator.service
+    mode: "0644"
+
+- name: Set ownership of systemd consensus service
+  ansible.builtin.file:
+    path: "/etc/systemd/system/consensus.service"
+    owner: root
+    group: root
+    mode: "0644"
+
+- name: Set ownership of systemd validator service
+  ansible.builtin.file:
+    path: "/etc/systemd/system/validator.service"
+    owner: root
+    group: root
+    mode: "0644"
+
+- name: Enable and start Ethereum services
+  ansible.builtin.systemd:
+    name: "{{ item }}"
+    state: started
+    enabled: true
+    daemon_reload: true
+  loop:
+    - "consensus"
+    - "validator"
+  when: item is defined and item != ""
+
+- name: Check Versions
+  import_tasks: version.yml
+  tags: [version_check]
+
+- name: Check Status
+  import_tasks: check_status.yml
+  tags: [status_check]
