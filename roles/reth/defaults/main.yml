@@ -1,0 +1,55 @@
+---
+# Reth execution client configuration
+
+# Network configuration
+eth_network: "hoodi"  # Options: mainnet, hoodi, sepolia, holesky
+
+# Version configuration
+reth_version: "latest"  # Options: latest, or specific version tag
+
+# User and group configuration
+execution_user: "execution"
+execution_group: "execution"
+
+# Installation paths
+data_dir: "/var/lib"
+execution_dir: "{{ data_dir }}/execution"
+reth_binary_path: "/root/.cargo/bin/reth"
+reth_data_dir: "{{ execution_dir }}/reth"
+
+# Reth execution command configuration
+reth_exec: |
+  {{ reth_binary_path }} \
+    --{{ eth_network }} \
+    --datadir {{ reth_data_dir }} \
+    --http \
+    --http.addr 0.0.0.0 \
+    --http.port 8545 \
+    --http.api eth,net,web3,admin,debug \
+    --http.corsdomain '*' \
+    --http.vhosts '*' \
+    --ws \
+    --ws.addr 0.0.0.0 \
+    --ws.port 8546 \
+    --ws.api eth,net,web3,admin,debug \
+    --authrpc.addr 0.0.0.0 \
+    --authrpc.port 8551 \
+    --authrpc.jwtsecret /secrets/jwtsecret \
+    --metrics \
+    --metrics.addr 0.0.0.0 \
+    --metrics.port 9001 \
+    --max-peers 50 \
+    --port 30303
+
+# Rust installation configuration
+rustup_install_url: "https://sh.rustup.rs"
+rustup_install_args: "-y"
+
+# Reth repository configuration
+reth_repo_url: "https://github.com/paradigmxyz/reth.git"
+reth_install_args: "--locked"
+
+# Service configuration
+service_name: "execution"
+service_enabled: true
+service_state: "started"

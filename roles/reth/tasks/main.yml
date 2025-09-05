@@ -1,0 +1,202 @@
+---
+- name: Install system dependencies
+  ansible.builtin.apt:
+    name:
+      - curl
+      - build-essential
+      - pkg-config
+      - libssl-dev
+      - git
+    state: present
+    update_cache: true
+
+- name: Create execution group
+  ansible.builtin.group:
+    name: "{{ execution_group }}"
+    state: present
+    system: true
+
+- name: Create execution user
+  ansible.builtin.user:
+    name: "{{ execution_user }}"
+    group: "{{ execution_group }}"
+    shell: /bin/false
+    system: true
+    create_home: false
+
+- name: Create execution directories
+  ansible.builtin.file:
+    path: "{{ execution_dir }}"
+    state: directory
+    owner: "{{ execution_user }}"
+    group: "{{ execution_group }}"
+    mode: '0755'
+
+- name: Create Reth data directory
+  ansible.builtin.file:
+    path: "{{ reth_data_dir }}"
+    state: directory
+    owner: "{{ execution_user }}"
+    group: "{{ execution_group }}"
+    mode: '0755'
+
+- name: Check if Reth is currently installed
+  ansible.builtin.shell: "{{ reth_binary_path }} --version | awk '{print $2}'"
+  register: current_reth_version
+  changed_when: false
+  failed_when: false
+
+- name: Get latest Reth version from GitHub
+  ansible.builtin.uri:
+    url: "https://api.github.com/repos/paradigmxyz/reth/releases/latest"
+    method: GET
+    return_content: true
+  register: reth_release_info
+  when: reth_version == "latest"
+
+- name: Set latest Reth version
+  ansible.builtin.set_fact:
+    target_reth_version: "{{ reth_release_info.json.tag_name | regex_replace('^v', '') }}"
+  when: reth_version == "latest"
+
+- name: Set specific Reth version
+  ansible.builtin.set_fact:
+    target_reth_version: "{{ reth_version }}"
+  when: reth_version != "latest"
+
+- name: Display version comparison
+  ansible.builtin.debug:
+    msg:
+      - "{{ '=' * 60 }}"
+      - "{{ ' ' * 20 }}🚀 RETH VERSION CHECK {{ ' ' * 20 }}"
+      - "{{ '=' * 60 }}"
+      - "📦 Currently installed: {{ current_reth_version.stdout | default('Not installed') }}"
+      - "🎯 Target version: {{ target_reth_version }}"
+      - "{{ '=' * 60 }}"
+
+- name: Install or upgrade Reth
+  when: current_reth_version.stdout is not defined or current_reth_version.stdout != target_reth_version
+  block:
+    - name: Stop execution service if running
+      ansible.builtin.systemd:
+        name: "{{ service_name }}"
+        state: stopped
+      ignore_errors: true
+
+    - name: Install Rustup
+      ansible.builtin.shell: |
+        curl --proto '=https' --tlsv1.2 -sSf {{ rustup_install_url }} | sh -s -- {{ rustup_install_args }}
+      args:
+        creates: /root/.cargo/bin/rustup
+      environment:
+        CARGO_HOME: /root/.cargo
+        RUSTUP_HOME: /root/.rustup
+
+    - name: Add Cargo to PATH
+      ansible.builtin.lineinfile:
+        path: /root/.bashrc
+        line: 'export PATH="$HOME/.cargo/bin:$PATH"'
+        create: true
+
+    - name: Set up Cargo environment
+      ansible.builtin.shell: |
+        source /root/.cargo/env
+        cargo --version
+      register: cargo_version
+      changed_when: false
+
+    - name: Display Cargo version
+      ansible.builtin.debug:
+        msg: "🔧 Cargo version: {{ cargo_version.stdout }}"
+
+    - name: Install Reth from source
+      ansible.builtin.shell: |
+        source /root/.cargo/env
+        {% if reth_version == 'latest' %}
+        cargo install --git {{ reth_repo_url }} {{ reth_install_args }}
+        {% else %}
+        cargo install --git {{ reth_repo_url }} --tag v{{ target_reth_version }} {{ reth_install_args }}
+        {% endif %}
+      args:
+        creates: "{{ reth_binary_path }}"
+      environment:
+        CARGO_HOME: /root/.cargo
+        RUSTUP_HOME: /root/.rustup
+        PATH: "/root/.cargo/bin:{{ ansible_env.PATH }}"
+
+    - name: Verify Reth installation
+      ansible.builtin.shell: "{{ reth_binary_path }} --version | awk '{print $2}'"
+      register: new_reth_version
+      changed_when: false
+
+    - name: Set ownership of Reth binary
+      ansible.builtin.file:
+        path: "{{ reth_binary_path }}"
+        owner: "{{ execution_user }}"
+        group: "{{ execution_group }}"
+        mode: '0755'
+
+    - name: Display installation result
+      ansible.builtin.debug:
+        msg:
+          - "{{ '=' * 60 }}"
+          - "{{ ' ' * 20 }}✅ RETH INSTALLATION COMPLETE {{ ' ' * 20 }}"
+          - "{{ '=' * 60 }}"
+          - "📦 Previous version: {{ current_reth_version.stdout | default('None') }}"
+          - "🆕 New version: {{ new_reth_version.stdout }}"
+          - "📍 Binary location: {{ reth_binary_path }}"
+          - "{{ '=' * 60 }}"
+
+- name: Create systemd service for Reth
+  ansible.builtin.template:
+    src: execution.service.j2
+    dest: "/etc/systemd/system/{{ service_name }}.service"
+    mode: '0644'
+    owner: root
+    group: root
+
+- name: Reload systemd daemon
+  ansible.builtin.systemd:
+    daemon_reload: true
+
+- name: Enable and start Reth service
+  ansible.builtin.systemd:
+    name: "{{ service_name }}"
+    state: "{{ service_state }}"
+    enabled: "{{ service_enabled }}"
+
+- name: Wait for Reth to start
+  ansible.builtin.wait_for:
+    port: 8545
+    host: "127.0.0.1"
+    delay: 5
+    timeout: 60
+
+- name: Verify Reth is running
+  ansible.builtin.uri:
+    url: "http://127.0.0.1:8545"
+    method: POST
+    body_format: json
+    body: |
+      {
+        "jsonrpc": "2.0",
+        "method": "eth_blockNumber",
+        "params": [],
+        "id": 1
+      }
+    return_content: true
+  register: reth_health_check
+  failed_when: false
+
+- name: Display final status
+  ansible.builtin.debug:
+    msg:
+      - "{{ '=' * 60 }}"
+      - "{{ ' ' * 20 }}🎉 RETH SETUP COMPLETE {{ ' ' * 20 }}"
+      - "{{ '=' * 60 }}"
+      - "✅ Service status: {{ 'Running' if reth_health_check.status == 200 else 'Not responding' }}"
+      - "🌐 HTTP endpoint: http://127.0.0.1:8545"
+      - "🔌 WebSocket endpoint: ws://127.0.0.1:8546"
+      - "📊 Metrics endpoint: http://127.0.0.1:9001"
+      - "📁 Data directory: {{ reth_data_dir }}"
+      - "{{ '=' * 60 }}"
