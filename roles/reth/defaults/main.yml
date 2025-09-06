@@ -19,37 +19,19 @@ reth_data_dir: "{{ execution_dir }}/reth"
 
 # Reth execution command configuration
 reth_exec: |
-  {{ reth_binary_path }} \
-    --{{ eth_network }} \
-    --datadir {{ reth_data_dir }} \
+  /usr/local/bin/reth node \
+    --full \
+    --chain mainnet \
+    --datadir=/var/lib/reth \
+    --metrics 127.0.0.1:6060 \
+    --port 30303 \
+    --discovery.port 30303 \
+    --enable-discv5-discovery \
+    --discovery.v5.port 30304 \
     --http \
-    --http.addr 0.0.0.0 \
     --http.port 8545 \
-    --http.api eth,net,web3,admin,debug \
-    --http.corsdomain '*' \
-    --http.vhosts '*' \
-    --ws \
-    --ws.addr 0.0.0.0 \
-    --ws.port 8546 \
-    --ws.api eth,net,web3,admin,debug \
-    --authrpc.addr 0.0.0.0 \
-    --authrpc.port 8551 \
-    --authrpc.jwtsecret /secrets/jwtsecret \
-    --metrics \
-    --metrics.addr 0.0.0.0 \
-    --metrics.port 9001 \
-    --max-peers 50 \
-    --port 30303
-
-# Rust installation configuration
-rustup_install_url: "https://sh.rustup.rs"
-rustup_install_args: "-y"
-
-# Reth repository configuration
-reth_repo_url: "https://github.com/paradigmxyz/reth.git"
-reth_install_args: "--locked"
-
-# Service configuration
-service_name: "execution"
-service_enabled: true
-service_state: "started"
+    --http.api="rpc,eth,web3,net,debug" \
+    --log.file.directory=/var/lib/reth/logs \ 
+    --max-outbound-peers 25 \
+    --max-inbound-peers 25 \
+    --authrpc.jwtsecret=/secrets/jwtsecret
