@@ -14,7 +14,7 @@ execution_group: "execution"
 # Installation paths
 data_dir: "/var/lib"
 execution_dir: "{{ data_dir }}/execution"
-reth_binary_path: "/root/.cargo/bin/reth"
+# reth_binary_path: "/root/.cargo/bin/reth"
 reth_data_dir: "{{ execution_dir }}/reth"
 
 # Reth execution command configuration

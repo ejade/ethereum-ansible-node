@@ -46,23 +46,54 @@
   changed_when: false
   failed_when: false
 
-- name: Get latest Reth version from GitHub
-  ansible.builtin.uri:
-    url: "https://api.github.com/repos/paradigmxyz/reth/releases/latest"
-    method: GET
-    return_content: true
-  register: reth_release_info
-  when: reth_version == "latest"
+- name: Install reth
+  when:
+    - consensus_client == 'reth'
+    - reth_version.stdout is not defined
+  block:
+    - name: Get latest reth download URL
+      ansible.builtin.shell: |
+        RELEASE_URL="https://api.github.com/repos/paradigmxyz/reth/releases/latest"
+        BINARIES_URL="$(curl -s $RELEASE_URL | jq -r '.assets[] | select(.name | startswith ("reth")) | .browser_download_url' | grep x86_64-unknown-linux-gnu.tar.gz$)"
+        echo $BINARIES_URL
+      register: reth_url
+      args:
+        executable: /bin/bash
 
-- name: Set latest Reth version
-  ansible.builtin.set_fact:
-    target_reth_version: "{{ reth_release_info.json.tag_name | regex_replace('^v', '') }}"
-  when: reth_version == "latest"
+    - name: Download reth binary
+      ansible.builtin.get_url:
+        url: "{{ reth_url.stdout }}"
+        dest: /tmp/reth.tar.gz
+        mode: "0644"
 
-- name: Set specific Reth version
-  ansible.builtin.set_fact:
-    target_reth_version: "{{ reth_version }}"
-  when: reth_version != "latest"
+    - name: Create temporary directory for reth extraction
+      ansible.builtin.file:
+        path: /tmp/reth-extract
+        state: directory
+        mode: "0755"
+
+    - name: Extract reth binary
+      ansible.builtin.unarchive:
+        src: /tmp/reth.tar.gz
+        dest: /tmp/reth-extract
+        remote_src: true
+
+    - name: Copy reth binary to /usr/local/bin
+      ansible.builtin.copy:
+        src: "/tmp/reth-extract/reth"
+        dest: /usr/local/bin/reth
+        mode: "0755"
+        remote_src: true
+        owner: "{{ execution_user }}"
+        group: "{{ execution_group }}"
+
+    - name: Clean up temporary files
+      ansible.builtin.file:
+        path: "{{ item }}"
+        state: absent
+      loop:
+        - /tmp/reth.tar.gz
+        - /tmp/reth-extract
 
 - name: Display version comparison
   ansible.builtin.debug:
@@ -79,50 +110,9 @@
   block:
     - name: Stop execution service if running
       ansible.builtin.systemd:
-        name: "{{ service_name }}"
+        name: "execution"
         state: stopped
       ignore_errors: true
-
-    - name: Install Rustup
-      ansible.builtin.shell: |
-        curl --proto '=https' --tlsv1.2 -sSf {{ rustup_install_url }} | sh -s -- {{ rustup_install_args }}
-      args:
-        creates: /root/.cargo/bin/rustup
-      environment:
-        CARGO_HOME: /root/.cargo
-        RUSTUP_HOME: /root/.rustup
-
-    - name: Add Cargo to PATH
-      ansible.builtin.lineinfile:
-        path: /root/.bashrc
-        line: 'export PATH="$HOME/.cargo/bin:$PATH"'
-        create: true
-
-    - name: Set up Cargo environment
-      ansible.builtin.shell: |
-        source /root/.cargo/env
-        cargo --version
-      register: cargo_version
-      changed_when: false
-
-    - name: Display Cargo version
-      ansible.builtin.debug:
-        msg: "🔧 Cargo version: {{ cargo_version.stdout }}"
-
-    - name: Install Reth from source
-      ansible.builtin.shell: |
-        source /root/.cargo/env
-        {% if reth_version == 'latest' %}
-        cargo install --git {{ reth_repo_url }} {{ reth_install_args }}
-        {% else %}
-        cargo install --git {{ reth_repo_url }} --tag v{{ target_reth_version }} {{ reth_install_args }}
-        {% endif %}
-      args:
-        creates: "{{ reth_binary_path }}"
-      environment:
-        CARGO_HOME: /root/.cargo
-        RUSTUP_HOME: /root/.rustup
-        PATH: "/root/.cargo/bin:{{ ansible_env.PATH }}"
 
     - name: Verify Reth installation
       ansible.builtin.shell: "{{ reth_binary_path }} --version | awk '{print $2}'"
@@ -150,7 +140,7 @@
 - name: Create systemd service for Reth
   ansible.builtin.template:
     src: execution.service.j2
-    dest: "/etc/systemd/system/{{ service_name }}.service"
+    dest: "/etc/systemd/system/execution.service"
     mode: '0644'
     owner: root
     group: root
@@ -161,7 +151,7 @@
 
 - name: Enable and start Reth service
   ansible.builtin.systemd:
-    name: "{{ service_name }}"
+    name: "execution"
     state: "{{ service_state }}"
     enabled: "{{ service_enabled }}"
 
