@@ -190,3 +190,11 @@
       - "📊 Metrics endpoint: http://127.0.0.1:9001"
       - "📁 Data directory: {{ reth_data_dir }}"
       - "{{ '=' * 60 }}"
+
+- name: Check Versions
+  import_tasks: version.yml
+  tags: [version_check]
+
+- name: Check Status
+  import_tasks: check_status.yml
+  tags: [status_check]
