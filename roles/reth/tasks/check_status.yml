@@ -1,14 +1,38 @@
-- name: Display final status
+---
+# Reth status check
+
+- name: Check if Reth is currently installed
+  ansible.builtin.shell: "{{ reth_binary_path }} --version | awk '{print $2}'"
+  register: current_reth_version
+  changed_when: false
+  failed_when: false
+
+- name: Get latest Reth release info
+  ansible.builtin.uri:
+    url: https://api.github.com/repos/paradigmxyz/reth/releases/latest
+    method: GET
+    return_content: true
+  register: reth_release
+  failed_when: false
+
+- name: Set latest Reth version
+  ansible.builtin.set_fact:
+    reth_latest_version: "{{ reth_release.json.tag_name | regex_replace('^v', '') }}"
+  when: reth_release.status == 200
+
+- name: Set fallback version
+  ansible.builtin.set_fact:
+    reth_latest_version: "1.6.0"
+  when: reth_release.status != 200
+
+- name: Display version comparison
   ansible.builtin.debug:
     msg:
       - "{{ '=' * 60 }}"
-      - "{{ ' ' * 20 }}🎉 RETH SETUP COMPLETE {{ ' ' * 20 }}"
+      - "{{ ' ' * 20 }}🚀 RETH VERSION CHECK {{ ' ' * 20 }}"
       - "{{ '=' * 60 }}"
-      - "✅ Service status: {{ 'Running' if reth_health_check.status == 200 else 'Not responding' }}"
-      - "🌐 HTTP endpoint: http://127.0.0.1:8545"
-      - "🔌 WebSocket endpoint: ws://127.0.0.1:8546"
-      - "📊 Metrics endpoint: http://127.0.0.1:9001"
-      - "📁 Data directory: {{ reth_data_dir }}"
+      - "📦 Currently installed: {{ current_reth_version.stdout | default('Not installed') }}"
+      - "🎯 Latest version: {{ reth_latest_version }}"
       - "{{ '=' * 60 }}"
 
 - name: Check JWT file
@@ -20,29 +44,15 @@
   ansible.builtin.debug:
     msg: "JWT secret file exists: {{ jwt_file.stat.exists }}, last modified: {{ jwt_file.stat.mtime | default('N/A') }}"
 
-- name: Check if Reth is currently installed
-  ansible.builtin.shell: "{{ reth_binary_path }} --version | awk '{print $2}'"
-  register: current_reth_version
-  changed_when: false
-  failed_when: false
-
-  - name: Get latest Reth release info
-  ansible.builtin.uri:
-    url: https://api.github.com/repos/paradigmxyz/reth/releases/latest
-    method: GET
-    return_content: true
-  register: reth_release
-
-- name: Register latest Reth version
-  ansible.builtin.set_fact:
-    reth_latest_version: "{{ reth_release.json.tag_name }}"
-
-  - name: Display version comparison
+- name: Display final status
   ansible.builtin.debug:
     msg:
       - "{{ '=' * 60 }}"
-      - "{{ ' ' * 20 }}🚀 RETH VERSION CHECK {{ ' ' * 20 }}"
+      - "{{ ' ' * 20 }}🎉 RETH SETUP COMPLETE {{ ' ' * 20 }}"
       - "{{ '=' * 60 }}"
-      - "📦 Currently installed: {{ current_reth_version.stdout | default('Not installed') }}"
-      - "🎯 Latest version: {{ reth_latest_version }}"
+      - "✅ Service status: {{ 'Running' if reth_health_check.status == 200 else 'Not responding' }}"
+      - "🌐 HTTP endpoint: http://127.0.0.1:8545"
+      - "🔌 WebSocket endpoint: ws://127.0.0.1:8546"
+      - "📊 Metrics endpoint: http://127.0.0.1:9001"
+      - "📁 Data directory: {{ reth_data_dir }}"
       - "{{ '=' * 60 }}"

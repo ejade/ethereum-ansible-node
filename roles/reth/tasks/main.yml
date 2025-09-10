@@ -42,7 +42,7 @@
 
 - name: Check if Reth is currently installed
   ansible.builtin.shell: "{{ reth_binary_path }} --version | awk '{print $2}'"
-  register: current_reth_version
+  register: reth_version
   changed_when: false
   failed_when: false
 
@@ -191,9 +191,9 @@
       - "📁 Data directory: {{ reth_data_dir }}"
       - "{{ '=' * 60 }}"
 
-- name: Check Versions
-  import_tasks: version.yml
-  tags: [version_check]
+# - name: Check Versions
+#  import_tasks: version.yml
+#  tags: [version_check]
 
 - name: Check Status
   import_tasks: check_status.yml

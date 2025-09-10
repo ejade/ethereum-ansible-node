@@ -10,20 +10,20 @@
 
 # Check for Reth updates
 - name: Check for Reth updates
-  when: execution_client == 'reth'
   block:
     - name: Get latest Reth version from GitHub
       ansible.builtin.uri:
         url: https://api.github.com/repos/paradigmxyz/reth/releases/latest
         return_content: true
       register: reth_releases
-      failed_when: false
       changed_when: false
+      failed_when: false
+  when: execution_client == 'reth'
 
-    - name: Compare installed and latest Reth versions
-      ansible.builtin.debug:
-        msg: |
-          Installed Reth version: {{ execution_client_version.stdout | default('Not installed') }}
+- name: Compare installed and latest Reth versions
+  ansible.builtin.debug:
+    msg: |
+          Installed Reth version: {{ reth_version.stdout | default('Not installed') }}
           Latest available version: {{ reth_releases.json.tag_name | default('Unknown') | regex_replace('^v', '') }}
           {% if execution_client_version.stdout is defined and reth_releases.json.tag_name is defined and execution_client_version.stdout != reth_releases.json.tag_name | regex_replace('^v', '') %}
           Update available: Yes

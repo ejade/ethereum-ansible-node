@@ -10,7 +10,9 @@
 
   roles:
     - base
-    - ethereum
+   # - ethereum
+    - reth
+    - lodestar
     - fail2ban
     - firewall
     - chrony
