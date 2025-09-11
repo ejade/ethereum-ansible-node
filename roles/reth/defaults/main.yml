@@ -16,13 +16,15 @@ data_dir: "/var/lib"
 execution_dir: "{{ data_dir }}/execution"
 reth_binary_path: "/usr/local/bin/reth"
 reth_data_dir: "{{ execution_dir }}/reth"
+reth_logs_dir: "{{ reth_data_dir }}/logs"
 
 # Reth execution command configuration
 reth_exec: |
-  /usr/local/bin/reth node \
+  /usr/local/bin/reth \
+     node \
     --full \
-    --chain mainnet \
-    --datadir=/var/lib/reth \
+    --chain {{ eth_network }} \
+    --datadir {{ reth_data_dir }} \
     --metrics 127.0.0.1:6060 \
     --port 30303 \
     --discovery.port 30303 \
@@ -31,7 +33,7 @@ reth_exec: |
     --http \
     --http.port 8545 \
     --http.api="rpc,eth,web3,net,debug" \
-    --log.file.directory=/var/lib/reth/logs \ 
+    --log.file.directory={{ reth_logs_dir }} \
     --max-outbound-peers 25 \
     --max-inbound-peers 25 \
     --authrpc.jwtsecret=/secrets/jwtsecret

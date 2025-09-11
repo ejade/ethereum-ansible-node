@@ -40,6 +40,27 @@
     group: "{{ execution_group }}"
     mode: '0755'
 
+- name: Create secrets directory
+  ansible.builtin.file:
+    path: /secrets
+    state: directory
+    mode: "0755"
+    owner: root
+    group: root
+
+- name: Create JWT secret file
+  ansible.builtin.shell: |
+    openssl rand -hex 32 | tr -d "\n" > /secrets/jwtsecret
+  args:
+    creates: /secrets/jwtsecret
+
+- name: Set JWT secret file permissions
+  ansible.builtin.file:
+    path: /secrets/jwtsecret
+    mode: "0644"
+    owner: root
+    group: root
+
 - name: Check if Reth is currently installed
   ansible.builtin.shell: "{{ reth_binary_path }} --version | awk '{print $2}'"
   register: reth_version
@@ -47,9 +68,6 @@
   failed_when: false
 
 - name: Install reth
-  when:
-    - consensus_client == 'reth'
-    - reth_version.stdout is not defined
   block:
     - name: Get latest reth download URL
       ansible.builtin.shell: |
@@ -81,7 +99,7 @@
     - name: Copy reth binary to /usr/local/bin
       ansible.builtin.copy:
         src: "/tmp/reth-extract/reth"
-        dest: /usr/local/bin/reth
+        dest: "{{ reth_binary_path }}"
         mode: "0755"
         remote_src: true
         owner: "{{ execution_user }}"
@@ -95,36 +113,34 @@
         - /tmp/reth.tar.gz
         - /tmp/reth-extract
 
-- name: Display version comparison
-  ansible.builtin.debug:
-    msg:
-      - "{{ '=' * 60 }}"
-      - "{{ ' ' * 20 }}🚀 RETH VERSION CHECK {{ ' ' * 20 }}"
-      - "{{ '=' * 60 }}"
-      - "📦 Currently installed: {{ current_reth_version.stdout | default('Not installed') }}"
-      - "🎯 Target version: {{ target_reth_version }}"
-      - "{{ '=' * 60 }}"
+ # - name: Display version comparison
+ # ansible.builtin.debug:
+ #   msg:
+ #     - "{{ '=' * 60 }}"
+ #     - "{{ ' ' * 20 }}🚀 RETH VERSION CHECK {{ ' ' * 20 }}"
+ #     - "{{ '=' * 60 }}"
+ #     - "📦 Currently installed: {{ current_reth_version.stdout | default('Not installed') }}"
+ #     - "🎯 Target version: {{ target_reth_version }}"
+ #     - "{{ '=' * 60 }}"
 
 - name: Install or upgrade Reth
-  when: current_reth_version.stdout is not defined or current_reth_version.stdout != target_reth_version
   block:
+    - name: Check if execution service exists
+      ansible.builtin.shell: systemctl list-unit-files execution.service --no-legend
+      register: execution_service_check
+      changed_when: false
+      failed_when: false
+
     - name: Stop execution service if running
       ansible.builtin.systemd:
-        name: "execution"
+        name: execution
         state: stopped
-      ignore_errors: true
+      when: execution_service_check.stdout != ""
 
     - name: Verify Reth installation
       ansible.builtin.shell: "{{ reth_binary_path }} --version | awk '{print $2}'"
       register: new_reth_version
       changed_when: false
-
-    - name: Set ownership of Reth binary
-      ansible.builtin.file:
-        path: "{{ reth_binary_path }}"
-        owner: "{{ execution_user }}"
-        group: "{{ execution_group }}"
-        mode: '0755'
 
     - name: Display installation result
       ansible.builtin.debug:
@@ -132,8 +148,8 @@
           - "{{ '=' * 60 }}"
           - "{{ ' ' * 20 }}✅ RETH INSTALLATION COMPLETE {{ ' ' * 20 }}"
           - "{{ '=' * 60 }}"
-          - "📦 Previous version: {{ current_reth_version.stdout | default('None') }}"
-          - "🆕 New version: {{ new_reth_version.stdout }}"
+         # - "📦 Previous version: {{ current_reth_version.stdout | default('None') }}"
+         # - "🆕 New version: {{ new_reth_version.stdout }}"
           - "📍 Binary location: {{ reth_binary_path }}"
           - "{{ '=' * 60 }}"
 
@@ -152,8 +168,8 @@
 - name: Enable and start Reth service
   ansible.builtin.systemd:
     name: "execution"
-    state: "{{ service_state }}"
-    enabled: "{{ service_enabled }}"
+    state: started
+    enabled: true
 
 - name: Wait for Reth to start
   ansible.builtin.wait_for:

@@ -1,30 +1,18 @@
 [Unit]
-Description=Reth Ethereum execution client
+Description=Ethereum execution client
 After=network.target
 Wants=network-online.target
 
 [Service]
 Type=simple
-User={{ execution_user }}
-Group={{ execution_group }}
-ExecStart={{ reth_exec }}
+User=execution
+Group=execution
 Restart=on-failure
 RestartSec=3
 KillSignal=SIGINT
 TimeoutStopSec=900
 Environment=RUST_LOG=info
-Environment=RUST_BACKTRACE=1
-WorkingDirectory={{ reth_data_dir }}
-StandardOutput=journal
-StandardError=journal
-SyslogIdentifier=reth
-
-# Security settings
-NoNewPrivileges=true
-PrivateTmp=true
-ProtectSystem=strict
-ProtectHome=true
-ReadWritePaths={{ reth_data_dir }}
+ExecStart={{ execution_exec }}
 
 [Install]
 WantedBy=multi-user.target 
