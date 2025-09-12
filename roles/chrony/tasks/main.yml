@@ -1,4 +1,10 @@
 ---
+
+- name: Ensure required packages
+  ansible.builtin.apt:
+    pkg: "{{ chrony_debian_packages }}"
+    state: present
+
 - name: Configure Chrony
   ansible.builtin.template:
     src: chrony.conf.j2

@@ -6,7 +6,6 @@
       - gnupg
       - lsb-release
       - ca-certificates
-      - software-properties-common
       - openssl
       - wget
       - jq
@@ -26,6 +25,14 @@
     shell: /bin/false
     system: true
     create_home: false
+
+- name: Create consensus directory
+  ansible.builtin.file:
+    path: "{{ lodestar_dir }}"
+    state: directory
+    owner: "{{ consensus_user }}"
+    group: "{{ consensus_group }}"
+    mode: "0755"
 
 - name: Create validator group
   ansible.builtin.group:
@@ -78,12 +85,13 @@
     group: "{{ consensus_group }}"
     mode: "0755"
 
+
 - name: Check if consensus client (Lodestar) is installed
   ansible.builtin.shell: /usr/local/bin/lodestar --version
   register: lodestar_version
   changed_when: false
   failed_when: false
-  when: consensus_client == 'lodestar'
+  # when: consensus_client == 'lodestar'
 
 - name: Display installed versions
   ansible.builtin.debug:
@@ -96,8 +104,8 @@
 
 - name: Install lodestar
   when:
-    - consensus_client == 'lodestar'
-    - lodestar_version.stdout is not defined
+    # - consensus_client == 'lodestar'
+    - lodestar_version.rc != 0
   block:
     - name: Get latest lodestar download URL
       ansible.builtin.shell: |
@@ -130,7 +138,7 @@
     - name: Copy lodestar binary to /usr/local/bin
       ansible.builtin.copy:
         src: "/tmp/lodestar-extract/lodestar"
-        dest: /usr/local/bin/lodestar
+        dest: /usr/local/bin/lodestar/lodestar
         mode: "0755"
         remote_src: true
         owner: "{{ consensus_user }}"
