@@ -1,0 +1,78 @@
+---
+# Ethereum network configuration
+eth_network: "hoodi" # Options: mainnet, hoodi
+consensus_client: "lighthouse" # Options: lighthouse
+enable_mevboost: true # Whether to install and configure MEV-Boost
+
+# Validator configuration
+suggested_fee_recipient: "0x0000000000000000000000000000000000000000" # This needs to be set in order to receive block rewards.
+
+
+# Client-specific versions
+lighthouse_version: "latest"
+
+# User configuration
+consensus_user: "consensus"
+consensus_group: "consensus"
+validator_user: "validator"
+validator_group: "validator"
+
+# Installation paths
+data_dir: "/var/lib"
+consensus_dir: "{{ data_dir }}/consensus"
+validator_dir: "{{ data_dir }}/validator"
+
+# Service configurations
+
+consensus_exec: "{{ lookup('vars', consensus_client + '_exec') }}"
+
+
+lighthouse_exec: |
+  /usr/local/bin/lighthouse beacon \
+    --network {{ eth_network }} \
+    --datadir {{ consensus_dir }} \
+    --staking \
+    --validator-monitor-auto \
+    --metrics \
+    --checkpoint-sync-url={{ 'https://hoodi.beaconstate.info' if eth_network == 'hoodi' else 'https://beaconstate.info' }} \
+    --port 9000 \
+    --quic-port 9001 \
+    --http-port 5052 \
+    --target-peers 100 \
+    --metrics-port 8008 \
+    --execution-endpoint http://127.0.0.1:8551 \
+    --execution-jwt /secrets/jwtsecret
+
+lighthouse_validator_exec: |
+  /usr/local/bin/lighthouse vc \
+    --network {{ eth_network }} \
+    --beacon-nodes http://localhost:5052 \
+    --datadir {{ consensus_dir }} \
+    --graffiti="🥩-ing with eth devops" \
+    --metrics \
+    --metrics-port 8009 \
+    --suggested-fee-recipient={{ suggested_fee_recipient }}
+
+# MEV-Boost configuration
+# Use the mainnet relays if on mainnet, otherwise use the testnet relays
+mainnet_relays:
+  - https://0x9000009807ed12c1f08bf4e81c6da3ba8e3fc3d953898ce0102433094e5f22f21102ec057841fcb81978ed1ea0fa8246@builder-relay-mainnet.blocknative.com
+  - https://0xa1559ace749633b997cb3fdacffb890aeebdb0f5a3b6aaa7eeeaf1a38af0a8fe88b9e4b1f61f236d2e64d95733327a62@relay.ultrasound.money
+  - https://0x8b5d2e73e2a3a55c6c87b8b6eb92e0149a125c852751db1422fa951e42a09b82c142c3ea98d0d9930b056a3bc9896b8f@bloxroute.max-profit.blxrbdn.com
+
+testnet_relays:
+  - https://0x84e78cb2ad883861c9eeeb7d1b22a8e02332637448f84144e245d20dff1eb97d7abdde96d93d518026ab8agora.holesky.dencun-relays.pk910.de
+
+mevboost_exec: |-
+  /usr/local/bin/mev-boost \
+    -{{ eth_network }} \
+    {% if eth_network == 'mainnet' %}
+    {% for relay in mainnet_relays %}
+    -relay {{ relay }} \
+    {% endfor %}
+    {% else %}
+    {% for relay in testnet_relays %}
+    -relay {{ relay }} \
+    {% endfor %}
+    {% endif %}
+    -addr 0.0.0.0:18550

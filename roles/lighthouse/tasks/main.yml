@@ -1,0 +1,194 @@
+---
+- name: Install dependencies
+  ansible.builtin.apt:
+    name:
+      - curl
+      - gnupg
+      - lsb-release
+      - ca-certificates
+      - software-properties-common
+      - openssl
+      - wget
+      - jq
+    state: present
+
+
+- name: Create consensus group
+  ansible.builtin.group:
+    name: "{{ consensus_group }}"
+    state: present
+    system: true
+
+- name: Create consensus user
+  ansible.builtin.user:
+    name: "{{ consensus_user }}"
+    group: "{{ consensus_group }}"
+    shell: /bin/false
+    system: true
+    create_home: false
+
+- name: Create validator group
+  ansible.builtin.group:
+    name: "{{ validator_group }}"
+    state: present
+    system: true
+
+- name: Create validator user
+  ansible.builtin.user:
+    name: "{{ validator_user }}"
+    group: "{{ validator_group }}"
+    shell: /bin/false
+    system: true
+    create_home: false
+
+- name: Create validator directory
+  ansible.builtin.file:
+    path: "{{ validator_dir }}"
+    state: directory
+    owner: "{{ validator_user }}"
+    group: "{{ validator_group }}"
+    mode: "0700"
+
+- name: Create secrets directory
+  ansible.builtin.file:
+    path: /secrets
+    state: directory
+    mode: "0755"
+    owner: root
+    group: root
+
+- name: Create JWT secret file
+  ansible.builtin.shell: |
+    openssl rand -hex 32 | tr -d "\n" > /secrets/jwtsecret
+  args:
+    creates: /secrets/jwtsecret
+
+- name: Set JWT secret file permissions
+  ansible.builtin.file:
+    path: /secrets/jwtsecret
+    mode: "0644"
+    owner: root
+    group: root
+
+- name: Create consensus directories
+  ansible.builtin.file:
+    path: "{{ consensus_dir }}"
+    state: directory
+    owner: "{{ consensus_user }}"
+    group: "{{ consensus_group }}"
+    mode: "0755"
+
+
+- name: Check if consensus client (Lighthouse) is installed
+  ansible.builtin.shell: /usr/local/bin/lighthouse --version | head -n 1 | awk '{print $2}'
+  register: lighthouse_version
+  changed_when: false
+  failed_when: false
+  when: consensus_client == 'lighthouse'
+
+- name: Display installed versions
+  ansible.builtin.debug:
+    msg:
+      - "------------------------------------"
+      - "CURRENTLY INSTALLED VERSIONS"
+      - "------------------------------------"
+      - "Execution client ({{ execution_client }}): {{ geth_version.stdout | default(reth_version.stdout) | default('Not installed') }}"
+      - "Consensus client ({{ consensus_client }}): {{ lighthouse_version.stdout | default('Not installed') }}"
+      - "------------------------------------"
+
+
+- name: Install Lighthouse
+  when:
+    - consensus_client == 'lighthouse'
+    - lighthouse_version.stdout is not defined
+  block:
+    - name: Get latest Lighthouse download URL
+      ansible.builtin.shell: |
+        RELEASE_URL="https://api.github.com/repos/sigp/lighthouse/releases/latest"
+        BINARIES_URL="$(curl -s $RELEASE_URL | jq -r '.assets[] | select(.name) | .browser_download_url' | grep x86_64-unknown-linux-gnu.tar.gz$)"
+        echo $BINARIES_URL
+      register: lighthouse_url
+      args:
+        executable: /bin/bash
+
+    - name: Download Lighthouse binary
+      ansible.builtin.get_url:
+        url: "{{ lighthouse_url.stdout }}"
+        dest: /tmp/lighthouse.tar.gz
+        mode: "0644"
+
+    - name: Create temporary directory for Lighthouse extraction
+      ansible.builtin.file:
+        path: /tmp/lighthouse-extract
+        state: directory
+        mode: "0755"
+
+    - name: Extract Lighthouse binary
+      ansible.builtin.unarchive:
+        src: /tmp/lighthouse.tar.gz
+        dest: /tmp/lighthouse-extract
+        remote_src: true
+
+    - name: Copy Lighthouse binary to /usr/local/bin
+      ansible.builtin.copy:
+        src: "/tmp/lighthouse-extract/lighthouse"
+        dest: /usr/local/bin/lighthouse
+        mode: "0755"
+        remote_src: true
+        owner: "{{ consensus_user }}"
+        group: "{{ consensus_group }}"
+
+    - name: Clean up temporary files
+      ansible.builtin.file:
+        path: "{{ item }}"
+        state: absent
+      loop:
+        - /tmp/lighthouse.tar.gz
+        - /tmp/lighthouse-extract
+
+
+- name: Create systemd service for consensus client
+  ansible.builtin.template:
+    src: consensus.service.j2
+    dest: /etc/systemd/system/consensus.service
+    mode: "0644"
+
+- name: Create systemd service for validator
+  ansible.builtin.template:
+    src: validator.service.j2
+    dest: /etc/systemd/system/validator.service
+    mode: "0644"
+
+
+- name: Set ownership of systemd consensus service
+  ansible.builtin.file:
+    path: "/etc/systemd/system/consensus.service"
+    owner: root
+    group: root
+    mode: "0644"
+
+- name: Set ownership of systemd validator service
+  ansible.builtin.file:
+    path: "/etc/systemd/system/validator.service"
+    owner: root
+    group: root
+    mode: "0644"
+
+- name: Enable and start Ethereum services
+  ansible.builtin.systemd:
+    name: "{{ item }}"
+    state: started
+    enabled: true
+    daemon_reload: true
+  loop:
+    - "consensus"
+    - "validator"
+  when: item is defined and item != ""
+
+- name: Check Versions
+  import_tasks: version.yml
+  tags: [version_check]
+
+- name: Check Status
+  import_tasks: check_status.yml
+  tags: [status_check]

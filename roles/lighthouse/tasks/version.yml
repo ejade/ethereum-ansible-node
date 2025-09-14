@@ -1,0 +1,35 @@
+---
+- name: Set execution client command
+  ansible.builtin.set_fact:
+    execution_command: >-
+      {% if execution_client == "geth" %}
+      /usr/local/bin/geth version | grep ^Version | awk '{print $2}'
+      {% elif execution_client == "reth" %}
+      /usr/local/bin/reth --version | awk '{print $2}'
+      {% endif %}
+
+- name: Get execution client version
+  ansible.builtin.command: "{{ execution_command }}"
+  register: execution_version
+  changed_when: false
+  failed_when: false
+
+- name: Get consensus client version (Lighthouse)
+  ansible.builtin.shell: /usr/local/bin/lighthouse --version | head -n 1 | awk '{print $2}'
+  register: consensus_version
+  changed_when: false
+  failed_when: false
+  when: consensus_client == "lighthouse"
+
+- name: Display client versions
+  ansible.builtin.debug:
+    msg:
+      - "------------------------------------"
+      - "ETHEREUM NODE CLIENT VERSIONS"
+      - "------------------------------------"
+      - "Execution client: {{ execution_client }}"
+      - "Version: {{ execution_version.stdout | default('Not installed or not running') }}"
+      - ""
+      - "Consensus client: {{ consensus_client }}"
+      - "Version: {{ consensus_version.stdout | default('Not installed or not running') }}"
+      - "------------------------------------"
