@@ -12,6 +12,11 @@
       - htop
       - curl
       - btop
+      - vnstat
+      - net-tools
+      - iotop
+      - iftop
+      - iptraf-ng
     state: present
 
 - name: Configure Unattended Upgrades
