@@ -1,0 +1,27 @@
+---
+# Uninstall Reth
+
+- name: Stop Reth service
+  ansible.builtin.systemd:
+    name: execution
+    state: stopped
+
+- name: Remove Reth service
+  ansible.builtin.file:
+    path: /etc/systemd/system/execution.service
+    state: absent
+
+- name: Remove Reth binary
+  ansible.builtin.file:
+    path: /usr/local/bin/reth
+    state: absent
+
+- name: Remove Reth data directory
+  ansible.builtin.file:
+    path: /var/lib/execution/reth
+    state: absent
+
+- name: Remove Reth logs directory
+  ansible.builtin.file:
+    path: /var/lib/execution/reth/logs
+    state: absent

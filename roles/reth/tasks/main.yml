@@ -214,3 +214,7 @@
 - name: Check Status
   import_tasks: check_status.yml
   tags: [status_check]
+
+- name: uninstall reth
+  import_tasks: uninstall.yml
+  tags: [uninstall]
