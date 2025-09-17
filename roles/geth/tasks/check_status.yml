@@ -1,0 +1,152 @@
+---
+- name: Fetch execution client (Geth/Reth) version
+  ansible.builtin.shell: |
+    {% if execution_client == 'geth' %}
+    /usr/local/bin/geth version | grep ^Version | awk '{print $2}'
+    {% elif execution_client == 'reth' %}
+    /root/.cargo/bin/reth --version | awk '{print $2}'
+    {% endif %}
+  register: execution_client_version
+  changed_when: false
+  failed_when: false
+  become: true
+  become_user: "{{ execution_user }}"
+
+- name: Fetch consensus client (Lighthouse) version
+  ansible.builtin.shell: |
+    {% if consensus_client == 'lighthouse' %}
+    /usr/local/bin/lighthouse --version | head -n 1 | awk '{print $2}'
+    {% endif %}
+  register: consensus_client_version
+  changed_when: false
+  failed_when: false
+  become: true
+  become_user: "{{ consensus_user }}"
+
+- name: Display client versions
+  ansible.builtin.debug:
+    msg: |
+      Execution client ({{ execution_client }}): {{ execution_client_version.stdout | default('Not installed') }}
+      Consensus client ({{ consensus_client }}): {{ consensus_client_version.stdout | default('Not installed') }}
+
+- name: Check service status
+  ansible.builtin.systemd:
+    name: "{{ item }}"
+  register: service_status
+  loop:
+    - execution
+    - consensus
+  check_mode: true
+  changed_when: false
+  failed_when: false
+
+- name: Display service status
+  ansible.builtin.debug:
+    msg:
+      - "------------------------------------"
+      - "Service: {{ item.item }}"
+      - "Status : {{ 'Running' if item.status.ActiveState == 'active' else 'Not running' }}"
+      - "PID    : {{ item.status.MainPID | default('N/A') }}"
+      - "Started: {{ item.status.ExecMainStartTimestamp | default('N/A') }}"
+      - "------------------------------------"
+  loop: "{{ service_status.results }}"
+  when: item.status is defined
+
+- name: Check disk space for execution directory
+  ansible.builtin.shell: |
+    df -h {{ execution_dir }} | tail -n +2 | awk '{print $1, $2, $3, $4, $5, $6}'
+  register: execution_disk_space
+  changed_when: false
+  failed_when: false
+
+- name: Check disk space for consensus directory
+  ansible.builtin.shell: |
+    df -h {{ consensus_dir }} | tail -n +2 | awk '{print $1, $2, $3, $4, $5, $6}'
+  register: consensus_disk_space
+  changed_when: false
+  failed_when: false
+
+- name: Parse disk space information
+  ansible.builtin.set_fact:
+    execution_disk_info: "{{ execution_disk_space.stdout.split() }}"
+    consensus_disk_info: "{{ consensus_disk_space.stdout.split() }}"
+
+- name: Display disk space information
+  ansible.builtin.debug:
+    msg:
+      - "------------------------------------"
+      - "DISK SPACE USAGE"
+      - "------------------------------------"
+      - "Execution client directory ({{ execution_dir }}):"
+      - "  Filesystem: {{ execution_disk_info[0] | default('N/A') }}"
+      - "  Size: {{ execution_disk_info[1] | default('N/A') }}"
+      - "  Used: {{ execution_disk_info[2] | default('N/A') }}"
+      - "  Available: {{ execution_disk_info[3] | default('N/A') }}"
+      - "  Usage: {{ execution_disk_info[4] | default('N/A') }}"
+      - "  Mount point: {{ execution_disk_info[5] | default('N/A') }}"
+      - ""
+      - "Consensus client directory ({{ consensus_dir }}):"
+      - "  Filesystem: {{ consensus_disk_info[0] | default('N/A') }}"
+      - "  Size: {{ consensus_disk_info[1] | default('N/A') }}"
+      - "  Used: {{ consensus_disk_info[2] | default('N/A') }}"
+      - "  Available: {{ consensus_disk_info[3] | default('N/A') }}"
+      - "  Usage: {{ consensus_disk_info[4] | default('N/A') }}"
+      - "  Mount point: {{ consensus_disk_info[5] | default('N/A') }}"
+      - "------------------------------------"
+
+- name: Check sync status (Execution client)
+  ansible.builtin.uri:
+    url: "http://localhost:8545"
+    method: POST
+    body_format: json
+    body: |
+      {
+        "jsonrpc": "2.0",
+        "method": "eth_syncing",
+        "params": [],
+        "id": 1
+      }
+    return_content: true
+  register: execution_sync_status
+  failed_when: false
+  changed_when: false
+  when: execution_client == 'geth' or execution_client == 'reth'
+
+- name: Check Lighthouse sync status
+  ansible.builtin.uri:
+    url: http://localhost:5052/eth/v1/node/syncing
+    method: GET
+    return_content: true
+  register: lighthouse_sync
+  when: consensus_client == "lighthouse"
+
+- name: Parse Lighthouse sync status
+  ansible.builtin.set_fact:
+    lighthouse_synced: >-
+      {{ (lighthouse_sync.json.data.is_syncing == false) and
+         (lighthouse_sync.json.data.sync_distance | int == 0) }}
+  when: consensus_client == "lighthouse"
+
+- name: Display client versions
+  ansible.builtin.debug:
+    msg:
+      - "------------------------------------"
+      - "ETHEREUM NODE CLIENT SYNC STATUS"
+      - "------------------------------------"
+      - "Execution client: {{ execution_client }}"
+      - "Synced: {{ 'Execution client is synced' if execution_sync_status.json.result == false else 'Execution client is syncing: ' + (execution_sync_status.json.result
+        | to_nice_json) }}"
+      - ""
+      - "Consensus client: {{ consensus_client }}"
+      - "Synced: {{ lighthouse_synced | default('N/A') }}"
+      - "Sync distance: {{ lighthouse_sync.json.data.sync_distance | default('N/A') }}"
+      - "------------------------------------"
+
+- name: Check JWT file
+  ansible.builtin.stat:
+    path: /secrets/jwtsecret
+  register: jwt_file
+
+- name: Display JWT file status
+  ansible.builtin.debug:
+    msg: "JWT secret file exists: {{ jwt_file.stat.exists }}, last modified: {{ jwt_file.stat.mtime | default('N/A') }}"

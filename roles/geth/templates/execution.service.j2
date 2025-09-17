@@ -1,0 +1,16 @@
+[Unit]
+Description=Ethereum execution client
+After=network.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User={{ execution_user }}
+Group={{ execution_group }}
+ExecStart={{ execution_exec }}
+Restart=always
+RestartSec=5
+LimitNOFILE=4096
+
+[Install]
+WantedBy=multi-user.target 
