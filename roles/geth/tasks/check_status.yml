@@ -12,22 +12,12 @@
   become: true
   become_user: "{{ execution_user }}"
 
-- name: Fetch consensus client (Lighthouse) version
-  ansible.builtin.shell: |
-    {% if consensus_client == 'lighthouse' %}
-    /usr/local/bin/lighthouse --version | head -n 1 | awk '{print $2}'
-    {% endif %}
-  register: consensus_client_version
-  changed_when: false
-  failed_when: false
-  become: true
-  become_user: "{{ consensus_user }}"
+
 
 - name: Display client versions
   ansible.builtin.debug:
     msg: |
       Execution client ({{ execution_client }}): {{ execution_client_version.stdout | default('Not installed') }}
-      Consensus client ({{ consensus_client }}): {{ consensus_client_version.stdout | default('Not installed') }}
 
 - name: Check service status
   ansible.builtin.systemd:
@@ -35,7 +25,6 @@
   register: service_status
   loop:
     - execution
-    - consensus
   check_mode: true
   changed_when: false
   failed_when: false
@@ -112,20 +101,6 @@
   changed_when: false
   when: execution_client == 'geth' or execution_client == 'reth'
 
-- name: Check Lighthouse sync status
-  ansible.builtin.uri:
-    url: http://localhost:5052/eth/v1/node/syncing
-    method: GET
-    return_content: true
-  register: lighthouse_sync
-  when: consensus_client == "lighthouse"
-
-- name: Parse Lighthouse sync status
-  ansible.builtin.set_fact:
-    lighthouse_synced: >-
-      {{ (lighthouse_sync.json.data.is_syncing == false) and
-         (lighthouse_sync.json.data.sync_distance | int == 0) }}
-  when: consensus_client == "lighthouse"
 
 - name: Display client versions
   ansible.builtin.debug:

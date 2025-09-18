@@ -7,20 +7,6 @@
   failed_when: false
   when: execution_client == 'geth'
 
-- name: Check if execution client (Reth) is installed
-  ansible.builtin.shell: /root/.cargo/bin/reth --version | awk '{print $2}'
-  register: reth_version
-  changed_when: false
-  failed_when: false
-  when: execution_client == 'reth'
-
-- name: Check if consensus client (Lighthouse) is installed
-  ansible.builtin.shell: /usr/local/bin/lighthouse --version | head -n 1 | awk '{print $2}'
-  register: lighthouse_version
-  changed_when: false
-  failed_when: false
-  when: consensus_client == 'lighthouse'
-
 - name: Display installed versions
   ansible.builtin.debug:
     msg:
@@ -28,7 +14,6 @@
       - "CURRENTLY INSTALLED VERSIONS"
       - "------------------------------------"
       - "Execution client ({{ execution_client }}): {{ geth_version.stdout | default(reth_version.stdout) | default('Not installed') }}"
-      - "Consensus client ({{ consensus_client }}): {{ lighthouse_version.stdout | default('Not installed') }}"
       - "------------------------------------"
 
 # Check for Geth updates
@@ -55,51 +40,6 @@
           Update available: No
           {% endif %}
 
-# Check for Reth updates
-- name: Check for Reth updates
-  when: execution_client == 'reth'
-  block:
-    - name: Get latest Reth version from GitHub
-      ansible.builtin.uri:
-        url: https://api.github.com/repos/paradigmxyz/reth/releases/latest
-        return_content: true
-      register: reth_releases
-      failed_when: false
-      changed_when: false
-
-    - name: Compare installed and latest Reth versions
-      ansible.builtin.debug:
-        msg: |
-          Installed Reth version: {{ execution_client_version.stdout | default('Not installed') }}
-          Latest available version: {{ reth_releases.json.tag_name | default('Unknown') | regex_replace('^v', '') }}
-          {% if execution_client_version.stdout is defined and reth_releases.json.tag_name is defined and execution_client_version.stdout != reth_releases.json.tag_name | regex_replace('^v', '') %}
-          Update available: Yes
-          {% else %}
-          Update available: No
-          {% endif %}
-
-# Check for Lighthouse updates
-- name: Check for Lighthouse updates
-  when: consensus_client == 'lighthouse'
-  block:
-    - name: Get latest Lighthouse version from GitHub
-      ansible.builtin.uri:
-        url: https://api.github.com/repos/sigp/lighthouse/releases/latest
-        return_content: true
-      register: lighthouse_releases
-      failed_when: false
-      changed_when: false
-
-    - name: Compare installed and latest Lighthouse versions
-      ansible.builtin.debug:
-        msg: |
-          Installed Lighthouse version: {{ consensus_client_version.stdout | default('Not installed') }}
-          Latest available version: {{ lighthouse_releases.json.tag_name | default('Unknown') | regex_replace('^v', '') }}
-          {% if consensus_client_version.stdout is defined and lighthouse_releases.json.tag_name is defined and consensus_client_version.stdout != lighthouse_releases.json.tag_name | regex_replace('^v', '') %}
-          Update available: Yes
-          {% else %}
-          Update available: No
-          {% endif %}
 - name: Display latest versions
   ansible.builtin.debug:
     msg:
@@ -107,5 +47,4 @@
       - "LATEST AVAILABLE VERSIONS"
       - "------------------------------------"
       - "Execution client ({{ execution_client }}): {{ latest_geth_version.stdout | default(latest_reth_version.stdout) | default('Not installed') }}"
-      - "Consensus client ({{ consensus_client }}): {{ lighthouse_releases.json.tag_name | default('Not Installed') | regex_replace('^v', '') }}"
       - "------------------------------------"
