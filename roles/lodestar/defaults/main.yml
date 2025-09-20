@@ -56,7 +56,7 @@ lodestar_validator_exec: |
     --graffiti "🥩-ing with eth devops"{% if enable_mevboost %} \
     --suggestedFeeRecipient {{ suggested_fee_recipient }}{% endif %}
 
-lighthouse_validator_exec: |
+lighthouse_validator_exec: |-
   ExecStart=/usr/local/bin/lodestar/lodestar validator \
     --network {{ eth_network }} \
     --dataDir {{ validator_dir }} \

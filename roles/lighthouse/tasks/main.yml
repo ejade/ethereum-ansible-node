@@ -12,7 +12,6 @@
       - jq
     state: present
 
-
 - name: Create consensus group
   ansible.builtin.group:
     name: "{{ consensus_group }}"
@@ -78,7 +77,6 @@
     group: "{{ consensus_group }}"
     mode: "0755"
 
-
 - name: Check if consensus client (Lighthouse) is installed
   ansible.builtin.shell: /usr/local/bin/lighthouse --version | head -n 1 | awk '{print $2}'
   register: lighthouse_version
@@ -95,7 +93,6 @@
       - "Execution client ({{ execution_client }}): {{ geth_version.stdout | default(reth_version.stdout) | default('Not installed') }}"
       - "Consensus client ({{ consensus_client }}): {{ lighthouse_version.stdout | default('Not installed') }}"
       - "------------------------------------"
-
 
 - name: Install Lighthouse
   when:
@@ -146,7 +143,6 @@
         - /tmp/lighthouse.tar.gz
         - /tmp/lighthouse-extract
 
-
 - name: Create systemd service for consensus client
   ansible.builtin.template:
     src: consensus.service.j2
@@ -158,7 +154,6 @@
     src: validator.service.j2
     dest: /etc/systemd/system/validator.service
     mode: "0644"
-
 
 - name: Set ownership of systemd consensus service
   ansible.builtin.file:

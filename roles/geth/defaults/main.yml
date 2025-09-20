@@ -4,24 +4,18 @@ eth_network: "hoodi" # Options: mainnet, hoodi
 execution_client: "geth" # Options: geth, reth
 consensus_client: "lighthouse" # Options: lighthouse
 
-
-
 # Client-specific versions
 geth_version: "stable"
-
 
 # User configuration
 execution_user: "execution"
 execution_group: "execution"
 
-
 # Installation paths
 data_dir: "/var/lib"
 execution_dir: "{{ data_dir }}/execution"
 
-
 # Service configurations
-
 
 execution_exec: "{{ lookup('vars', execution_client + '_exec') }}"
 

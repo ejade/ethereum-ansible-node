@@ -7,7 +7,6 @@ enable_mevboost: true # Whether to install and configure MEV-Boost
 # Validator configuration
 suggested_fee_recipient: "0x0000000000000000000000000000000000000000" # This needs to be set in order to receive block rewards.
 
-
 # Client-specific versions
 lighthouse_version: "latest"
 
@@ -25,7 +24,6 @@ validator_dir: "{{ data_dir }}/validator"
 # Service configurations
 
 consensus_exec: "{{ lookup('vars', consensus_client + '_exec') }}"
-
 
 lighthouse_exec: |
   /usr/local/bin/lighthouse beacon \
