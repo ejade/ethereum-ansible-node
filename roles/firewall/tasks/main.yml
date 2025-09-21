@@ -10,9 +10,13 @@
     policy: deny
 
 - name: Disable default in
-  community.general.ufw: direction=incoming policy=deny
+  community.general.ufw:
+    direction: incoming
+    policy: deny
 - name: Enable default outgoing
-  community.general.ufw: direction=outgoing policy=allow
+  community.general.ufw:
+    direction: outgoing
+    policy: allow
 - name: Configure UFW rules
   community.general.ufw:
     rule: allow

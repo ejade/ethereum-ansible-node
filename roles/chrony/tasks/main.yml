@@ -1,5 +1,4 @@
 ---
-
 - name: Ensure required packages
   ansible.builtin.apt:
     pkg: "{{ chrony_debian_packages }}"

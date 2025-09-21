@@ -2,10 +2,10 @@
 # Reth execution client configuration
 execution_client: reth
 # Network configuration
-eth_network: "hoodi"  # Options: mainnet, hoodi, sepolia, holesky
+eth_network: "hoodi" # Options: mainnet, hoodi, sepolia, holesky
 
 # Version configuration
-reth_version: "latest"  # Options: latest, or specific version tag
+reth_version: "latest" # Options: latest, or specific version tag
 
 # User and group configuration
 execution_user: "execution"

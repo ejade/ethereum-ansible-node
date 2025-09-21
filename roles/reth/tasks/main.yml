@@ -30,7 +30,7 @@
     state: directory
     owner: "{{ execution_user }}"
     group: "{{ execution_group }}"
-    mode: '0755'
+    mode: "0755"
 
 - name: Create Reth data directory
   ansible.builtin.file:
@@ -38,7 +38,7 @@
     state: directory
     owner: "{{ execution_user }}"
     group: "{{ execution_group }}"
-    mode: '0755'
+    mode: "0755"
 
 - name: Create secrets directory
   ansible.builtin.file:
@@ -126,7 +126,7 @@
 - name: Install or upgrade Reth
   block:
     - name: Check if execution service exists
-      ansible.builtin.shell: systemctl list-unit-files execution.service --no-legend
+      ansible.builtin.command: systemctl list-unit-files execution.service --no-legend
       register: execution_service_check
       changed_when: false
       failed_when: false
@@ -148,8 +148,8 @@
           - "{{ '=' * 60 }}"
           - "{{ ' ' * 20 }}✅ RETH INSTALLATION COMPLETE {{ ' ' * 20 }}"
           - "{{ '=' * 60 }}"
-         # - "📦 Previous version: {{ current_reth_version.stdout | default('None') }}"
-         # - "🆕 New version: {{ new_reth_version.stdout }}"
+          # - "📦 Previous version: {{ current_reth_version.stdout | default('None') }}"
+          # - "🆕 New version: {{ new_reth_version.stdout }}"
           - "📍 Binary location: {{ reth_binary_path }}"
           - "{{ '=' * 60 }}"
 
@@ -157,7 +157,7 @@
   ansible.builtin.template:
     src: execution.service.j2
     dest: "/etc/systemd/system/execution.service"
-    mode: '0644'
+    mode: "0644"
     owner: root
     group: root
 
@@ -215,6 +215,6 @@
   import_tasks: check_status.yml
   tags: [status_check]
 
-- name: uninstall reth
+- name: Uninstall reth
   import_tasks: uninstall.yml
   tags: [uninstall]
